@@ -42,4 +42,11 @@ export const cinematicWorks: CinematicWorkItem[] = [
     youtubeId: "jNQXAC9IVRw",
     description: "Immersive foley and spatial sound design for a deep-dive documentary.",
   },
+  {
+    id: "6",
+    title: "SCI-FI ORIGINALS",
+    category: "CGI & Comp",
+    youtubeId: "ZVT82w5Eu5w",
+    description: "Complex green screen keying and CGI set extensions for independent sci-fi.",
+  },
 ];
