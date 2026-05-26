@@ -9,7 +9,7 @@ export function HeroSection() {
   const { scrollY } = useScroll();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isPlayingRef = useRef(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   const toggleMute = () => {
     const win = iframeRef.current?.contentWindow;
@@ -122,7 +122,7 @@ export function HeroSection() {
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=0&loop=1&playlist=${featuredVideoId}&controls=0&showinfo=0&rel=0&enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=1&loop=1&playlist=${featuredVideoId}&controls=1&rel=0&modestbranding=1&enablejsapi=1`}
                   title="TrenchVfx Featured Video"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
