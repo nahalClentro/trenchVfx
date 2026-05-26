@@ -174,7 +174,7 @@ export function CinematicWorkSection() {
             Long Form Storytelling
           </span>
           <h2 className="text-5xl md:text-7xl font-sans font-black uppercase tracking-tight leading-[0.9] text-white">
-            Cinematic<br />Works
+            Selected<br />Long Form
           </h2>
         </div>
         
