@@ -27,5 +27,5 @@ export const works: WorkItem[] = [
     category: "Motion Design",
     youtubeId: "5iwy5v6FCas",
     description: "Typography animation and kinetic motion design",
-  },
+  }
 ];

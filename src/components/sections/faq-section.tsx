@@ -39,10 +39,6 @@ const faqItems: FaqItem[] = [
 export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  const toggleItem = (index: number) => {
-    setOpenIndex((prev) => (prev === index ? null : index));
-  };
-
   return (
     <section 
       id="faq" 
@@ -75,7 +71,6 @@ export function FaqSection() {
                 onMouseLeave={() => setOpenIndex(null)}
               >
                 <button
-                  onClick={() => toggleItem(index)}
                   className="w-full flex items-center justify-between py-6 md:py-8 group focus:outline-none text-left"
                 >
                   <div className="flex items-center gap-8 md:gap-16 w-full">
