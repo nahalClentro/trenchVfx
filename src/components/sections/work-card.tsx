@@ -185,12 +185,12 @@ export function WorkCard({
         <div className="absolute inset-0 z-0 bg-black">
           <iframe
             ref={iframeRef}
-            src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=0&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=1&fs=0&rel=0&modestbranding=1&disablekb=0&iv_load_policy=3&enablejsapi=1`}
+            src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1`}
             allow="autoplay; encrypted-media"
             title={item.title}
             tabIndex={-1}
             className="w-full h-full border-none"
-            style={{ pointerEvents: "auto" }}
+            style={{ pointerEvents: "none" }}
           />
         </div>
       )}
