@@ -1,60 +1,236 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cinematicWorks } from "@/data/cinematic-works";
+import { WorkCard } from "./work-card";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+
+const VISIBLE = 2;
 
 export function CinematicWorkSection() {
-  const targetRef = useRef<HTMLDivElement>(null);
-  
-  // Track vertical scroll progress of this section
-  const { scrollYProgress } = useScroll({
-    target: targetRef,
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [hasEntered, setHasEntered] = useState(false);
+  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
+
+  // Safe client-side screen size detection
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        setScreenType("mobile");
+      } else if (window.innerWidth < 1024) {
+        setScreenType("tablet");
+      } else {
+        setScreenType("desktop");
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Set up GSAP ScrollTriggers for scroll reveals
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const mainTrigger = ScrollTrigger.create({
+      trigger: sectionRef.current,
+      start: "top 80%",
+      onUpdate: (self) => {
+        if (self.progress > 0) {
+          setHasEntered(true);
+          self.kill();
+        }
+      },
+    });
+
+    if (mainTrigger.progress > 0) {
+      setHasEntered(true);
+      mainTrigger.kill();
+    }
+
+    const heading = headingRef.current;
+    let headingAnim: gsap.core.Tween | undefined;
+    if (heading) {
+      headingAnim = gsap.fromTo(
+        heading.children,
+        { opacity: 0, y: 60 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1.2,
+          ease: "power3.out",
+          stagger: 0.15,
+          scrollTrigger: {
+            trigger: heading,
+            start: "top 85%",
+            once: true,
+          },
+        }
+      );
+    }
+
+    const nav = navRef.current;
+    let navAnim: gsap.core.Tween | undefined;
+    if (nav) {
+      navAnim = gsap.fromTo(
+        nav,
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1.2,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: nav,
+            start: "top 95%",
+            once: true,
+          },
+        }
+      );
+    }
+
+    return () => {
+      mainTrigger.kill();
+      if (headingAnim?.scrollTrigger) headingAnim.scrollTrigger.kill();
+      headingAnim?.kill();
+      if (navAnim?.scrollTrigger) navAnim.scrollTrigger.kill();
+      navAnim?.kill();
+    };
+  }, []);
+
+  // Carousel layout configuration per screen size (Bigger and responsive, exact 16:9 ratio)
+  const config = {
+    mobile: {
+      cardWidth: 288,
+      cardHeight: 162,
+      spacing: 160,
+      yOffset: 25,
+      rotateStep: 5,
+      carouselHeight: 300,
+    },
+    tablet: {
+      cardWidth: 448,
+      cardHeight: 252,
+      spacing: 280,
+      yOffset: 40,
+      rotateStep: 6,
+      carouselHeight: 450,
+    },
+    desktop: {
+      cardWidth: 640,
+      cardHeight: 360,
+      spacing: 440,
+      yOffset: 65,
+      rotateStep: 7,
+      carouselHeight: 550,
+    },
+  }[screenType];
+
+  const prev = useCallback(
+    () => setActiveIndex((i) => (i - 1 + cinematicWorks.length) % cinematicWorks.length),
+    []
+  );
+
+  const next = useCallback(
+    () => setActiveIndex((i) => (i + 1) % cinematicWorks.length),
+    []
+  );
+
+  const handleCardClick = useCallback((pos: number) => {
+    if (pos === 0) return;
+    setActiveIndex((i) => (i + pos + cinematicWorks.length) % cinematicWorks.length);
+  }, []);
+
+  // Get current fanned set of 5 cards
+  const cards = Array.from({ length: VISIBLE * 2 + 1 }, (_, i) => {
+    const pos = i - VISIBLE;
+    const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
+    return { pos, item: cinematicWorks[idx] };
   });
 
-  // Map vertical scroll (0 to 1) to horizontal movement.
-  // We use calc to ensure the scrolling perfectly stops when the end of the container reaches the end of the screen.
-  const x = useTransform(scrollYProgress, [0, 1], ["calc(0% + 0vw)", "calc(-100% + 100vw)"]);
-
-  const isInView = useInView(targetRef, { amount: 0.05 });
-
-  // Mute all videos when scrolling away
-  useEffect(() => {
-    if (!isInView) {
-      const iframes = targetRef.current?.querySelectorAll("iframe");
-      iframes?.forEach((iframe) => {
-        iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-      });
-    }
-  }, [isInView]);
-
   return (
-    <section ref={targetRef} className="relative h-[300vh] bg-black text-white">
-      {/* ── Sticky Container ── */}
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="relative z-10 w-full overflow-hidden bg-black text-white"
+      style={{
+        minHeight: "100dvh",
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+      }}
+    >
+      {/* ── Heading Container ── */}
+      <div
+        ref={headingRef}
+        className="relative px-8 pt-24 pb-4 sm:px-14 flex flex-col md:flex-row justify-between items-start md:items-end gap-6"
+      >
+        <div className="opacity-0">
+          <span className="text-gray-500 text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold block mb-3">
+            Long Form Storytelling
+          </span>
+          <h2 className="text-5xl md:text-7xl font-sans font-black uppercase tracking-tight leading-[0.9] text-white">
+            Cinematic<br />Works
+          </h2>
+        </div>
         
-        {/* ── Horizontally Scrolling Track ── */}
-        <motion.div 
-          style={{ x }} 
-          className="flex gap-8 md:gap-16 px-[10vw] w-max"
-        >
-          {cinematicWorks.map((work) => (
-            <div
-              key={work.id}
-              className="relative shrink-0 w-[85vw] sm:w-[600px] md:w-[700px] aspect-video rounded-xl md:rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.02]"
-            >
-              <iframe
-                src={`https://www.youtube.com/embed/${work.youtubeId}?autoplay=0&mute=0&controls=1&rel=0&modestbranding=1&enablejsapi=1`}
-                title={work.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="absolute inset-0 w-full h-full border-none"
-              />
-            </div>
-          ))}
-        </motion.div>
+        {/* Right descriptor text */}
+        <p className="text-white/50 text-[14px] sm:text-[15px] leading-relaxed max-w-[320px] font-sans opacity-0 text-left md:text-right">
+          A showcase of our most technically demanding and visually striking long-form projects.
+        </p>
+      </div>
 
+      {/* ── Fan Carousel ── */}
+      <div
+        className="relative w-full overflow-visible flex items-end justify-center"
+        style={{
+          height: config.carouselHeight,
+          marginTop: "3rem",
+        }}
+      >
+        {cards.map(({ pos, item }) => (
+          <WorkCard
+            key={item.id}
+            item={item as any}
+            isActive={pos === 0}
+            position={pos}
+            onClick={() => handleCardClick(pos)}
+            cardWidth={config.cardWidth}
+            cardHeight={config.cardHeight}
+            spacing={config.spacing}
+            yOffset={config.yOffset}
+            rotateStep={config.rotateStep}
+            hasEntered={hasEntered}
+          />
+        ))}
+      </div>
+
+      {/* ── Navigation Buttons ── */}
+      <div
+        ref={navRef}
+        className="flex items-center justify-center gap-4 pt-12 pb-24 opacity-0"
+      >
+        {/* Prev Button */}
+        <button
+          onClick={prev}
+          aria-label="Previous work"
+          className="group flex h-14 w-14 items-center justify-center rounded-full border border-white/20 text-white/60 transition-all duration-300 hover:border-white hover:text-white hover:scale-105 active:scale-95"
+        >
+          <ArrowLeft size={20} strokeWidth={1.5} className="transition-transform duration-300 group-hover:-translate-x-1" />
+        </button>
+        
+        {/* Next Button — Highlighted */}
+        <button
+          onClick={next}
+          aria-label="Next work"
+          className="group flex h-14 w-14 items-center justify-center rounded-full border border-white/60 text-white transition-all duration-300 hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95"
+        >
+          <ArrowRight size={20} strokeWidth={1.5} className="transition-transform duration-300 group-hover:translate-x-1" />
+        </button>
       </div>
     </section>
   );
