@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { works } from "@/data/works";
@@ -8,6 +8,15 @@ import { WorkCard } from "./work-card";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const VISIBLE = 1;
+
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function getInitialScreenType(): "mobile" | "tablet" | "desktop" {
+  if (typeof window === "undefined") return "desktop";
+  if (window.innerWidth < 640) return "mobile";
+  if (window.innerWidth < 1024) return "tablet";
+  return "desktop";
+}
 
 interface Props {
   id?: string;
@@ -20,48 +29,55 @@ export function SelectedWorkSection({ id }: Props) {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
-  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
+  // Lazy init so cards render at the correct breakpoint on first paint
+  // (eliminates the "starts at desktop size then resizes" flicker)
+  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">(getInitialScreenType);
 
-  // Safe client-side screen size detection
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setScreenType("mobile");
-      } else if (window.innerWidth < 1024) {
-        setScreenType("tablet");
-      } else {
-        setScreenType("desktop");
-      }
+      if (window.innerWidth < 640) setScreenType("mobile");
+      else if (window.innerWidth < 1024) setScreenType("tablet");
+      else setScreenType("desktop");
     };
-
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Set up GSAP ScrollTriggers for scroll reveals
+  // Synchronously detect "section already in view on mount" BEFORE first paint.
+  // ScrollTrigger alone misses this when Lenis hasn't synced its scroll state
+  // yet on a fresh page load / refresh, which was why videos disappeared and
+  // stayed at the small pre-entrance scale until you clicked next/prev.
+  useIsoLayoutEffect(() => {
+    if (!sectionRef.current) return;
+    const rect = sectionRef.current.getBoundingClientRect();
+    // section's top is within the upper 80% of viewport OR above viewport (scrolled past)
+    if (rect.top < window.innerHeight * 0.8) {
+      setHasEntered(true);
+    }
+  }, []);
+
+  // ScrollTrigger / IntersectionObserver for the scroll-down case
+  useEffect(() => {
+    if (hasEntered) return;
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setHasEntered(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -20% 0px" }
+    );
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, [hasEntered]);
+
+  // Heading + nav scroll reveals
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
-    // Trigger the card fan-out when the section enters 80% of the viewport height, or immediately if already past on page load/refresh
-    const mainTrigger = ScrollTrigger.create({
-      trigger: sectionRef.current,
-      start: "top 80%",
-      onUpdate: (self) => {
-        if (self.progress > 0) {
-          setHasEntered(true);
-          self.kill();
-        }
-      },
-    });
-
-    // Run an immediate check on load/refresh in case the browser scrolled straight to the anchor
-    if (mainTrigger.progress > 0) {
-      setHasEntered(true);
-      mainTrigger.kill();
-    }
-
-    // Stagger fade-up the description and heading
     const heading = headingRef.current;
     let headingAnim: gsap.core.Tween | undefined;
     if (heading) {
@@ -74,16 +90,11 @@ export function SelectedWorkSection({ id }: Props) {
           duration: 1.2,
           ease: "power3.out",
           stagger: 0.15,
-          scrollTrigger: {
-            trigger: heading,
-            start: "top 85%",
-            once: true,
-          },
+          scrollTrigger: { trigger: heading, start: "top 85%", once: true },
         }
       );
     }
 
-    // Fade-up the navigation buttons
     const nav = navRef.current;
     let navAnim: gsap.core.Tween | undefined;
     if (nav) {
@@ -95,18 +106,12 @@ export function SelectedWorkSection({ id }: Props) {
           y: 0,
           duration: 1.2,
           ease: "power3.out",
-          scrollTrigger: {
-            trigger: nav,
-            start: "top 95%",
-            once: true,
-          },
+          scrollTrigger: { trigger: nav, start: "top 95%", once: true },
         }
       );
     }
 
-    // Clean up to prevent memory leaks in React StrictMode
     return () => {
-      mainTrigger.kill();
       if (headingAnim?.scrollTrigger) headingAnim.scrollTrigger.kill();
       headingAnim?.kill();
       if (navAnim?.scrollTrigger) navAnim.scrollTrigger.kill();
@@ -157,7 +162,6 @@ export function SelectedWorkSection({ id }: Props) {
     setActiveIndex((i) => (i + pos + works.length) % works.length);
   }, []);
 
-  // Get current fanned set of 5 cards
   const cards = Array.from({ length: VISIBLE * 2 + 1 }, (_, i) => {
     const pos = i - VISIBLE;
     const idx = (activeIndex + pos + works.length) % works.length;
@@ -175,7 +179,6 @@ export function SelectedWorkSection({ id }: Props) {
         boxShadow: "0 -24px 48px rgba(0, 0, 0, 0.7)",
       }}
     >
-      {/* ── Heading Container ── */}
       <div
         ref={headingRef}
         className="relative px-8 pt-24 pb-4 sm:px-14 flex flex-col md:flex-row justify-between items-start md:items-end gap-6"
@@ -188,20 +191,14 @@ export function SelectedWorkSection({ id }: Props) {
             Selected<br />Shorts
           </h2>
         </div>
-        
-        {/* Right descriptor text */}
         <p className="text-white/50 text-[14px] sm:text-[15px] leading-relaxed max-w-[320px] font-sans opacity-0 text-left md:text-right">
           A curated sequence of high-impact edits designed for maximum retention and authority building.
         </p>
       </div>
 
-      {/* ── Fan Carousel ── */}
       <div
         className="relative w-full overflow-visible flex items-end justify-center"
-        style={{
-          height: config.carouselHeight,
-          marginTop: "3rem",
-        }}
+        style={{ height: config.carouselHeight, marginTop: "3rem" }}
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
@@ -220,12 +217,10 @@ export function SelectedWorkSection({ id }: Props) {
         ))}
       </div>
 
-      {/* ── Navigation ── */}
       <div
         ref={navRef}
         className="flex items-center justify-center gap-4 pt-12 pb-24 opacity-0"
       >
-        {/* Prev Button */}
         <button
           onClick={prev}
           aria-label="Previous work"
@@ -233,8 +228,6 @@ export function SelectedWorkSection({ id }: Props) {
         >
           <ArrowLeft size={20} strokeWidth={1.5} className="transition-transform duration-300 group-hover:-translate-x-1" />
         </button>
-
-        {/* Next Button — Highlighted */}
         <button
           onClick={next}
           aria-label="Next work"
