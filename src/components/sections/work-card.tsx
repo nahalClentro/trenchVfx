@@ -89,7 +89,7 @@ export function WorkCard({
         duration: 0.8,
         ease: "power3.out",
         overwrite: "auto",
-        // Stagger entrance delay slightly when fanning out for the first time
+        force3D: true,
         delay: !hasEntered ? (2 - abs) * 0.08 : 0,
       });
     }
@@ -141,6 +141,9 @@ export function WorkCard({
         overflow: "hidden",
         cursor: position === 0 ? "default" : "pointer",
         willChange: "transform",
+        backfaceVisibility: "hidden",
+        WebkitBackfaceVisibility: "hidden",
+        transform: "translateZ(0)",
         backgroundColor: "#000",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         boxShadow: isActive

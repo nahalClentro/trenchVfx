@@ -7,7 +7,7 @@ import { cinematicWorks } from "@/data/cinematic-works";
 import { WorkCard } from "./work-card";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const VISIBLE = 2;
+const VISIBLE = 1;
 
 export function CinematicWorkSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
