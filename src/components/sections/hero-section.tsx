@@ -114,13 +114,10 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.4 }}
-            className="w-full mx-auto z-10"
-            // Width-first sizing: hugs the viewport (90vw) on laptops/desktops so
-            // 13" screens don't get huge side gutters, but capped at 96rem on very
-            // wide monitors. The vh-based cap reserves ~150px for heading/CTAs
-            // — enough to keep the top of the hero visible without crushing the
-            // video back to a small box on short screens.
-            style={{ maxWidth: "min(90vw, 96rem, calc((100dvh - 150px) * (16 / 9)))" }}
+            /* Added flex-shrink-0 to prevent layout compression squishing the aspect ratio */
+            className="w-full mx-auto z-10 flex-shrink-0"
+            /* Increased subtraction to 440px to accurately budget for heading, buttons, and gaps */
+            style={{ maxWidth: "min(90vw, 96rem, calc((100dvh - 440px) * (16 / 9)))" }}
           >
             <div className="relative w-full aspect-video rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent via-transparent to-yellow-500 rounded-[18px] sm:rounded-[26px] blur-xl opacity-[0.07] group-hover:opacity-[0.18] transition-opacity duration-500 -z-10" />
