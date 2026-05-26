@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 
 const testimonial = {
-  logoText: "apex agency",
-  logoIcon: "A",
-  quote: "The attention to detail and pacing in the edit took our commercial from good to exceptional. They understand rhythm and visual storytelling better than anyone we've worked with.",
-  name: "Marcus Thorne",
-  role: "Creative Director at Apex Agency",
+  logoText: "tyson ridenour",
+  logoIcon: "T",
+  quote: "",
+  name: "Tyson Ridenour",
+  role: "142K Subscribers",
   avatar: "https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg",
 };
 
@@ -194,12 +194,14 @@ export function TestimonialsSection() {
               </span>
             </div>
 
-            <div className="mb-10">
-              <p className="text-lg md:text-xl font-medium leading-relaxed text-white/90">
-                <span className="text-accent text-3xl font-serif leading-none align-top mr-1.5 select-none">"</span>
-                {testimonial.quote}
-              </p>
-            </div>
+            {testimonial.quote && (
+              <div className="mb-10">
+                <p className="text-lg md:text-xl font-medium leading-relaxed text-white/90">
+                  <span className="text-accent text-3xl font-serif leading-none align-top mr-1.5 select-none">"</span>
+                  {testimonial.quote}
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
