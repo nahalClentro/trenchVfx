@@ -27,26 +27,5 @@ export const works: WorkItem[] = [
     category: "Motion Design",
     youtubeId: "5iwy5v6FCas",
     description: "Typography animation and kinetic motion design",
-  },
-   {
-    id: "4",
-    title: "DYNAMIC WARP SPEED",
-    category: "Transitions",
-    youtubeId: "9XpRuHhmock",
-    description: "Speed ramping and motion blur zoom transitions",
-  },
-  {
-    id: "5",
-    title: "SOUND DESIGN SYNC",
-    category: "Sound Design",
-    youtubeId: "GuO_EqeutKk",
-    description: "Spatial sound editing and speed ramp synchronization",
-  },
-  {
-    id: "6",
-    title: "MOTION GRAPHICS REEL",
-    category: "Motion Design",
-    youtubeId: "5iwy5v6FCas",
-    description: "Typography animation and kinetic motion design",
-  },
+  }
 ];

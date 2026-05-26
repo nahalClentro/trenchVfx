@@ -45,7 +45,7 @@ export function HeroSection() {
   return (
     <motion.section
       id="hero"
-      className="relative w-full min-h-[100dvh] px-4 sm:px-6 lg:px-8 pt-32 sm:pt-40 pb-16 sm:pb-24 overflow-hidden flex items-center justify-center"
+      className="relative w-full min-h-[100dvh] px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-10 sm:pb-14 overflow-hidden flex items-center justify-center"
       style={{ scale, opacity, y }}
     >
       {/* Background Ambient Glow */}
@@ -57,7 +57,7 @@ export function HeroSection() {
       />
 
       {/* Content wrapper */}
-      <div className="w-full max-w-7xl flex flex-col items-center text-center gap-10 sm:gap-14">
+      <div className="w-full max-w-7xl flex flex-col items-center text-center gap-6 sm:gap-8">
 
         {/* Top Content Group */}
         <div className="flex flex-col items-center z-10 w-full max-w-4xl mx-auto">
@@ -65,7 +65,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-display text-5xl sm:text-7xl md:text-8xl tracking-tight mb-4 sm:mb-6 leading-[1.1] select-none"
+            className="font-display text-4xl sm:text-5xl md:text-6xl tracking-tight mb-3 leading-[1.1] select-none"
           >
             <span className="text-white">Trench</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow-500">Vfx</span>
@@ -75,7 +75,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-base sm:text-lg md:text-xl text-muted-foreground w-full font-light mb-8 sm:mb-10 leading-relaxed"
+            className="text-sm sm:text-base text-muted-foreground w-full font-light mb-5 leading-relaxed"
           >
             {siteConfig.description}
           </motion.p>
@@ -118,6 +118,7 @@ export function HeroSection() {
           >
             <div className="relative w-full aspect-video rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent via-transparent to-yellow-500 rounded-[18px] sm:rounded-[26px] blur-xl opacity-[0.07] group-hover:opacity-[0.18] transition-opacity duration-500 -z-10" />
+              <div className="absolute inset-0 rounded-[18px] sm:rounded-[26px] -z-10" style={{ boxShadow: "0 8px 80px 10px rgba(255, 214, 0, 0.25)" }} />
 
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <iframe
