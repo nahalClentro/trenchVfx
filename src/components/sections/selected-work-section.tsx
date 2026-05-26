@@ -7,7 +7,7 @@ import { works } from "@/data/works";
 import { WorkCard } from "./work-card";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const VISIBLE = 2;
+const VISIBLE = 1;
 
 interface Props {
   id?: string;
