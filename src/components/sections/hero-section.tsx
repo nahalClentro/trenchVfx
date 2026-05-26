@@ -45,7 +45,7 @@ export function HeroSection() {
   return (
     <motion.section
       id="hero"
-      className="relative w-full min-h-[100dvh] px-4 sm:px-6 lg:px-8 pt-32 sm:pt-40 pb-16 sm:pb-24 overflow-hidden flex items-center justify-center"
+      className="relative w-full min-h-[100dvh] px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 md:pt-40 pb-10 sm:pb-16 md:pb-24 overflow-hidden flex items-center justify-center"
       style={{ scale, opacity, y }}
     >
       {/* Background Ambient Glow */}
@@ -57,7 +57,7 @@ export function HeroSection() {
       />
 
       {/* Content wrapper */}
-      <div className="w-full max-w-7xl flex flex-col items-center text-center gap-10 sm:gap-14">
+      <div className="w-full max-w-7xl flex flex-col items-center text-center gap-6 sm:gap-10 md:gap-14">
 
         {/* Top Content Group */}
         <div className="flex flex-col items-center z-10 w-full max-w-4xl mx-auto">
@@ -75,7 +75,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-base sm:text-lg md:text-xl text-muted-foreground w-full font-light mb-8 sm:mb-10 leading-relaxed"
+            className="text-base sm:text-lg md:text-xl text-muted-foreground w-full font-light mb-5 sm:mb-8 md:mb-10 leading-relaxed"
           >
             {siteConfig.description}
           </motion.p>
@@ -114,9 +114,9 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.4 }}
-            className="w-full max-w-5xl mx-auto z-10"
+            className="w-full max-w-5xl mx-auto z-10 flex flex-col items-center"
           >
-            <div className="relative w-full aspect-video rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group">
+            <div className="relative w-full aspect-video max-h-[35dvh] sm:max-h-[45dvh] md:max-h-[50dvh] rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group mx-auto">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent via-transparent to-yellow-500 rounded-[18px] sm:rounded-[26px] blur-xl opacity-[0.07] group-hover:opacity-[0.18] transition-opacity duration-500 -z-10" />
 
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
