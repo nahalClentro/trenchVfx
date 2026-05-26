@@ -68,9 +68,11 @@ export function FaqSection() {
             const qNumber = `Q${index + 1}`;
             
             return (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className="border-b border-white/10 transition-colors duration-300"
+                onMouseEnter={() => setOpenIndex(index)}
+                onMouseLeave={() => setOpenIndex(null)}
               >
                 <button
                   onClick={() => toggleItem(index)}
