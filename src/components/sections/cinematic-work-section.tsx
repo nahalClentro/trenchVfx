@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cinematicWorks } from "@/data/cinematic-works";
@@ -9,6 +9,15 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const VISIBLE = 1;
 
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function getInitialScreenType(): "mobile" | "tablet" | "desktop" {
+  if (typeof window === "undefined") return "desktop";
+  if (window.innerWidth < 640) return "mobile";
+  if (window.innerWidth < 1024) return "tablet";
+  return "desktop";
+}
+
 export function CinematicWorkSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
@@ -16,44 +25,48 @@ export function CinematicWorkSection() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
-  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
+  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">(getInitialScreenType);
 
-  // Safe client-side screen size detection
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setScreenType("mobile");
-      } else if (window.innerWidth < 1024) {
-        setScreenType("tablet");
-      } else {
-        setScreenType("desktop");
-      }
+      if (window.innerWidth < 640) setScreenType("mobile");
+      else if (window.innerWidth < 1024) setScreenType("tablet");
+      else setScreenType("desktop");
     };
-
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Set up GSAP ScrollTriggers for scroll reveals
-  useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+  // See selected-work-section.tsx for why this synchronous on-mount check
+  // matters — fixes "videos disappear on refresh" and "cards stay at the
+  // pre-entrance size until you navigate."
+  useIsoLayoutEffect(() => {
+    if (!sectionRef.current) return;
+    const rect = sectionRef.current.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.8) {
+      setHasEntered(true);
+    }
+  }, []);
 
-    const mainTrigger = ScrollTrigger.create({
-      trigger: sectionRef.current,
-      start: "top 80%",
-      onUpdate: (self) => {
-        if (self.progress > 0) {
+  useEffect(() => {
+    if (hasEntered) return;
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
           setHasEntered(true);
-          self.kill();
+          observer.disconnect();
         }
       },
-    });
+      { rootMargin: "0px 0px -20% 0px" }
+    );
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, [hasEntered]);
 
-    if (mainTrigger.progress > 0) {
-      setHasEntered(true);
-      mainTrigger.kill();
-    }
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
 
     const heading = headingRef.current;
     let headingAnim: gsap.core.Tween | undefined;
@@ -67,11 +80,7 @@ export function CinematicWorkSection() {
           duration: 1.2,
           ease: "power3.out",
           stagger: 0.15,
-          scrollTrigger: {
-            trigger: heading,
-            start: "top 85%",
-            once: true,
-          },
+          scrollTrigger: { trigger: heading, start: "top 85%", once: true },
         }
       );
     }
@@ -87,17 +96,12 @@ export function CinematicWorkSection() {
           y: 0,
           duration: 1.2,
           ease: "power3.out",
-          scrollTrigger: {
-            trigger: nav,
-            start: "top 95%",
-            once: true,
-          },
+          scrollTrigger: { trigger: nav, start: "top 95%", once: true },
         }
       );
     }
 
     return () => {
-      mainTrigger.kill();
       if (headingAnim?.scrollTrigger) headingAnim.scrollTrigger.kill();
       headingAnim?.kill();
       if (navAnim?.scrollTrigger) navAnim.scrollTrigger.kill();
@@ -148,7 +152,6 @@ export function CinematicWorkSection() {
     setActiveIndex((i) => (i + pos + cinematicWorks.length) % cinematicWorks.length);
   }, []);
 
-  // Get current fanned set of 5 cards
   const cards = Array.from({ length: VISIBLE * 2 + 1 }, (_, i) => {
     const pos = i - VISIBLE;
     const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
@@ -164,7 +167,6 @@ export function CinematicWorkSection() {
         borderTop: "1px solid rgba(255,255,255,0.05)",
       }}
     >
-      {/* ── Heading Container ── */}
       <div
         ref={headingRef}
         className="relative px-8 pt-24 pb-4 sm:px-14 flex flex-col md:flex-row justify-between items-start md:items-end gap-6"
@@ -177,20 +179,14 @@ export function CinematicWorkSection() {
             Selected<br />Long Form
           </h2>
         </div>
-        
-        {/* Right descriptor text */}
         <p className="text-white/50 text-[14px] sm:text-[15px] leading-relaxed max-w-[320px] font-sans opacity-0 text-left md:text-right">
           A showcase of our most technically demanding and visually striking long-form projects.
         </p>
       </div>
 
-      {/* ── Fan Carousel ── */}
       <div
         className="relative w-full overflow-visible flex items-end justify-center"
-        style={{
-          height: config.carouselHeight,
-          marginTop: "3rem",
-        }}
+        style={{ height: config.carouselHeight, marginTop: "3rem" }}
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
@@ -209,12 +205,10 @@ export function CinematicWorkSection() {
         ))}
       </div>
 
-      {/* ── Navigation Buttons ── */}
       <div
         ref={navRef}
         className="flex items-center justify-center gap-4 pt-12 pb-24 opacity-0"
       >
-        {/* Prev Button */}
         <button
           onClick={prev}
           aria-label="Previous work"
@@ -222,8 +216,6 @@ export function CinematicWorkSection() {
         >
           <ArrowLeft size={20} strokeWidth={1.5} className="transition-transform duration-300 group-hover:-translate-x-1" />
         </button>
-        
-        {/* Next Button — Highlighted */}
         <button
           onClick={next}
           aria-label="Next work"

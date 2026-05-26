@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import Image from "next/image";
 import { gsap } from "gsap";
-import { useInView } from "framer-motion";
 import type { WorkItem } from "@/data/works";
+
+// Avoid useLayoutEffect SSR warning while still running synchronously on the client
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface Props {
   item: WorkItem;
@@ -34,21 +36,25 @@ export function WorkCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const prevPosRef = useRef(position);
+  const prevHasEnteredRef = useRef(false);
+  const isFirstRunRef = useRef(true);
   const [hovered, setHovered] = useState(false);
-  const [videoFadedIn, setVideoFadedIn] = useState(false);
   const [iframeMounted, setIframeMounted] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [origin, setOrigin] = useState("");
   const abs = Math.abs(position);
 
-  const isInView = useInView(cardRef, { amount: 0.5 });
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
 
-  // Pre-compile quickTo animators once on mount — much cheaper than gsap.to() on every change
   const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const yTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const rotateTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const scaleTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const opacityTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     xTo.current = gsap.quickTo(el, "x", { duration: 0.55, ease: "expo.out" });
@@ -58,13 +64,27 @@ export function WorkCard({
     opacityTo.current = gsap.quickTo(el, "opacity", { duration: 0.3, ease: "power2.out" });
   }, []);
 
-  // Drive animations via quickTo — no new tween objects, just value updates
-  useEffect(() => {
+  // Position / animation driver.
+  //
+  // We use useLayoutEffect so the very first paint already has the card at
+  // its final transform — without this, the card briefly paints at gsap's
+  // default scale (1) before snapping to its real target, which combined with
+  // refresh-while-on-section produced the "video appears smaller / disappears"
+  // bug. Four cases:
+  //   1. First run, section NOT yet in view  → snap to hidden state.
+  //   2. First run, section ALREADY in view  → snap to final state (no entrance anim).
+  //   3. hasEntered transitions false → true → play entrance animation.
+  //   4. Position change (carousel switch)   → quickTo to new target.
+  useIsoLayoutEffect(() => {
     const el = cardRef.current;
     if (!el) return;
 
     const prevPos = prevPosRef.current;
     prevPosRef.current = position;
+    const prevHasEntered = prevHasEnteredRef.current;
+    prevHasEnteredRef.current = hasEntered;
+    const isFirstRun = isFirstRunRef.current;
+    isFirstRunRef.current = false;
 
     const targetX = hasEntered ? position * spacing : 0;
     const targetY = hasEntered ? (isActive ? -yOffset * 2.3 : abs === 1 ? -yOffset : 0) : 220;
@@ -72,26 +92,44 @@ export function WorkCard({
     const targetScale = hasEntered ? (isActive ? 1.08 : 1 - abs * 0.1) : 0.7;
     const targetOpacity = hasEntered ? 1 : 0;
 
-    // Entrance animation: use gsap.to with stagger (quickTo not ready yet on first render)
-    if (!hasEntered) {
+    // Case 1 & 2: first effect run — always snap, never animate
+    if (isFirstRun) {
+      gsap.set(el, {
+        x: targetX,
+        y: targetY,
+        rotation: targetRotate,
+        scale: targetScale,
+        opacity: targetOpacity,
+        force3D: true,
+      });
+      return;
+    }
+
+    // Case 3: entrance animation (hasEntered just flipped true)
+    if (!prevHasEntered && hasEntered) {
       gsap.to(el, {
-        x: targetX, y: targetY, rotation: targetRotate,
-        scale: targetScale, opacity: targetOpacity,
-        duration: 0.8, ease: "power3.out",
-        overwrite: "auto", force3D: true,
+        x: targetX,
+        y: targetY,
+        rotation: targetRotate,
+        scale: targetScale,
+        opacity: targetOpacity,
+        duration: 0.8,
+        ease: "power3.out",
+        overwrite: "auto",
+        force3D: true,
         delay: (2 - abs) * 0.08,
       });
       return;
     }
 
-    // Wrap-around jump: snap position then fade in
+    // Wrap-around jump (carousel index crossed the end)
     if (Math.abs(prevPos - position) > 2) {
       gsap.set(el, { x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: 0, force3D: true });
       opacityTo.current?.(targetOpacity);
       return;
     }
 
-    // Normal transition: call pre-compiled animators (no allocation, no jank)
+    // Case 4: normal carousel transition
     xTo.current?.(targetX);
     yTo.current?.(targetY);
     rotateTo.current?.(targetRotate);
@@ -99,31 +137,35 @@ export function WorkCard({
     opacityTo.current?.(targetOpacity);
   }, [position, isActive, spacing, yOffset, rotateStep, hasEntered, abs]);
 
-  // Delay iframe mount by 2 frames so the card slide animation starts in a clean frame
+  // Mount iframe only when card is active. Once mounted, KEEP it mounted as long
+  // as the card stays active — never tie this to scroll/viewport state.
   useEffect(() => {
-    if (!isActive || !isInView) {
+    if (!isActive) {
       setIframeMounted(false);
-      setVideoFadedIn(false);
+      setIframeLoaded(false);
       return;
     }
-    let raf1: number, raf2: number;
-    raf1 = requestAnimationFrame(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setIframeMounted(true));
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [isActive, isInView]);
+  }, [isActive]);
 
-  // Fade in video after iframe has had time to buffer
+  // Safety net: if YouTube never fires onLoad (CSP, network blip, blocked
+  // by extension), reveal the iframe after 6s anyway.
   useEffect(() => {
-    if (!iframeMounted) { setVideoFadedIn(false); return; }
-    const t = setTimeout(() => setVideoFadedIn(true), 400);
-    return () => clearTimeout(t);
-  }, [iframeMounted]);
+    if (!iframeMounted || iframeLoaded) return;
+    const t = window.setTimeout(() => setIframeLoaded(true), 6000);
+    return () => window.clearTimeout(t);
+  }, [iframeMounted, iframeLoaded]);
 
   const zIndexVal = isActive ? 20 : 10 - abs;
+
+  const embedSrc = `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3${origin ? `&origin=${encodeURIComponent(origin)}` : ""}`;
 
   return (
     <div
@@ -147,28 +189,29 @@ export function WorkCard({
         WebkitBackfaceVisibility: "hidden",
         backgroundColor: "#000",
         border: "1px solid rgba(255, 255, 255, 0.08)",
-        // Static shadow — no reactive repaint on active change
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         zIndex: zIndexVal,
+        // initial opacity 0 so the card is invisible until the first useLayoutEffect
+        // runs and applies the correct gsap state (prevents a flash at gsap defaults)
         opacity: 0,
       }}
     >
-      {/* ── Thumbnail ── */}
-      <div
-        className="absolute inset-0 z-10"
-        style={{
-          opacity: videoFadedIn ? 0 : 1,
-          pointerEvents: "none",
-          transition: "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
+      {/* Thumbnail — permanent fallback layer (z-0). */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <Image
-          src={`https://img.youtube.com/vi/${item.youtubeId}/0.jpg`}
+          src={`https://img.youtube.com/vi/${item.youtubeId}/maxresdefault.jpg`}
           alt={item.title}
           fill
           className="object-cover"
           sizes={`${cardWidth}px`}
           priority={abs <= 1}
+          unoptimized
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.src.includes("hqdefault")) {
+              img.src = `https://img.youtube.com/vi/${item.youtubeId}/hqdefault.jpg`;
+            }
+          }}
         />
         <div
           className="absolute inset-0"
@@ -183,15 +226,25 @@ export function WorkCard({
         />
       </div>
 
-      {/* ── YouTube iframe — mounted 2 frames after card becomes active ── */}
+      {/* YouTube iframe layered ON TOP of the thumbnail. */}
       {iframeMounted && (
-        <div className="absolute inset-0 z-0 bg-black">
+        <div
+          className="absolute inset-0 z-10 bg-transparent"
+          style={{
+            opacity: iframeLoaded ? 1 : 0,
+            transition: "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+            pointerEvents: "none",
+          }}
+        >
           <iframe
             ref={iframeRef}
-            src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1`}
-            allow="autoplay; encrypted-media"
+            src={embedSrc}
+            allow="autoplay; encrypted-media; picture-in-picture"
             title={item.title}
             tabIndex={-1}
+            loading="eager"
+            referrerPolicy="origin"
+            onLoad={() => setIframeLoaded(true)}
             className="w-full h-full border-none"
             style={{ pointerEvents: "none" }}
           />
