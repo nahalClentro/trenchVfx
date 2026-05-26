@@ -4,7 +4,7 @@ export const siteConfig = {
   description:
     "Position yourself as an authority in your niche",
   links: {
-    instagram: "https://www.instagram.com/trenchvfx",
+    instagram: "https://www.instagram.com/trenchmadedat?igsh=YmN0dmlobjZuYzZh",
   },
   portfolio: {
     // Replace with your actual YouTube video ID (the part after ?v= in the URL)

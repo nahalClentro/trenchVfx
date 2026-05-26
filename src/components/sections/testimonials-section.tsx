@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 const testimonial = {
   logoText: "tyson ridenour",
   logoIcon: "T",
-  quote: "",
+  quote: "Working with TrenchVfx was a game-changer for my channel — the edits hit different and the pacing keeps viewers locked in from start to finish.",
   name: "Tyson Ridenour",
   role: "142K Subscribers",
   avatar: "https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg",
