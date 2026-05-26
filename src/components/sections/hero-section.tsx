@@ -128,7 +128,7 @@ export function HeroSection() {
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  className="w-full h-full border-none"
+                  className="w-full h-full border-none scale-[1.34] origin-center pointer-events-none"
                 />
               </div>
 
