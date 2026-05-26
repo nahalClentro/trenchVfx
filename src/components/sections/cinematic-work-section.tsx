@@ -194,7 +194,7 @@ export function CinematicWorkSection() {
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
-            key={item.id}
+            key={pos}
             item={item as any}
             isActive={pos === 0}
             position={pos}

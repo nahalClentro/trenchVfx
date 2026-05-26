@@ -205,7 +205,7 @@ export function SelectedWorkSection({ id }: Props) {
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
-            key={item.id}
+            key={pos}
             item={item}
             isActive={pos === 0}
             position={pos}

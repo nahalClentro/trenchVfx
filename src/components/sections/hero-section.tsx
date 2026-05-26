@@ -117,7 +117,7 @@ export function HeroSection() {
             className="w-full mx-auto z-10"
             style={{ maxWidth: "min(72rem, calc((100dvh - 280px) * (16 / 9)))" }}
           >
-            <div className="relative w-full aspect-video rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group">
+            <div className="relative w-full aspect-video max-h-[35dvh] sm:max-h-[45dvh] md:max-h-[50dvh] rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group mx-auto">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent via-transparent to-yellow-500 rounded-[18px] sm:rounded-[26px] blur-xl opacity-[0.07] group-hover:opacity-[0.18] transition-opacity duration-500 -z-10" />
               <div className="absolute inset-0 rounded-[18px] sm:rounded-[26px] -z-10" style={{ boxShadow: "0 8px 80px 10px rgba(255, 214, 0, 0.25)" }} />
 
