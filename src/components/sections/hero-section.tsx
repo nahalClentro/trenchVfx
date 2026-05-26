@@ -114,7 +114,8 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.4 }}
-            className="w-full max-w-5xl mx-auto z-10"
+            className="w-full mx-auto z-10"
+            style={{ maxWidth: "min(72rem, calc((100dvh - 280px) * (16 / 9)))" }}
           >
             <div className="relative w-full aspect-video rounded-[16px] sm:rounded-[24px] p-[1px] bg-gradient-to-b from-white/[0.06] to-transparent shadow-2xl group">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent via-transparent to-yellow-500 rounded-[18px] sm:rounded-[26px] blur-xl opacity-[0.07] group-hover:opacity-[0.18] transition-opacity duration-500 -z-10" />
@@ -123,12 +124,12 @@ export function HeroSection() {
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=1&loop=1&playlist=${featuredVideoId}&controls=1&rel=0&modestbranding=1&enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=1&loop=1&playlist=${featuredVideoId}&controls=0&rel=0&modestbranding=1&enablejsapi=1`}
                   title="TrenchVfx Featured Video"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  className="w-full h-full border-none scale-[1.34] origin-center pointer-events-none"
+                  className="w-full h-full border-none pointer-events-none"
                 />
               </div>
 

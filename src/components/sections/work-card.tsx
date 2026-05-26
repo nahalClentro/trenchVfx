@@ -9,7 +9,7 @@ import type { WorkItem } from "@/data/works";
 interface Props {
   item: WorkItem;
   isActive: boolean;
-  position: number; // -2 … 0 … 2
+  position: number;
   onClick: () => void;
   cardWidth: number;
   cardHeight: number;
@@ -36,90 +36,92 @@ export function WorkCard({
   const prevPosRef = useRef(position);
   const [hovered, setHovered] = useState(false);
   const [videoFadedIn, setVideoFadedIn] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [iframeMounted, setIframeMounted] = useState(false);
   const abs = Math.abs(position);
 
-  // amount:0.5 — card must be ≥50% visible before we consider it "in view"
   const isInView = useInView(cardRef, { amount: 0.5 });
 
-  // Handle GSAP layout animations when card props update
+  // Pre-compile quickTo animators once on mount — much cheaper than gsap.to() on every change
+  const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+  const yTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+  const rotateTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+  const scaleTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+  const opacityTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
+    xTo.current = gsap.quickTo(el, "x", { duration: 0.55, ease: "expo.out" });
+    yTo.current = gsap.quickTo(el, "y", { duration: 0.55, ease: "expo.out" });
+    rotateTo.current = gsap.quickTo(el, "rotation", { duration: 0.55, ease: "expo.out" });
+    scaleTo.current = gsap.quickTo(el, "scale", { duration: 0.45, ease: "expo.out" });
+    opacityTo.current = gsap.quickTo(el, "opacity", { duration: 0.3, ease: "power2.out" });
+  }, []);
 
-    // Cancel any active or delayed/queued animations to prevent race conditions on fast state updates
-    gsap.killTweensOf(el);
+  // Drive animations via quickTo — no new tween objects, just value updates
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
 
     const prevPos = prevPosRef.current;
     prevPosRef.current = position;
 
     const targetX = hasEntered ? position * spacing : 0;
-    // Upward-arch baseline mapping (outer cards at y:0, middle cards up, active card up even more)
-    const targetY = hasEntered ? (isActive ? -yOffset * 2.3 : (abs === 1 ? -yOffset : 0)) : 220;
+    const targetY = hasEntered ? (isActive ? -yOffset * 2.3 : abs === 1 ? -yOffset : 0) : 220;
     const targetRotate = hasEntered ? position * rotateStep : 0;
     const targetScale = hasEntered ? (isActive ? 1.08 : 1 - abs * 0.1) : 0.7;
     const targetOpacity = hasEntered ? 1 : 0;
 
-    // Detect extreme wrap-around jump (e.g., from -2 to 2 or vice versa)
-    const isExtremeJump = Math.abs(prevPos - position) > 2;
-
-    if (isExtremeJump) {
-      // Instantly position on the new side and fade in, preventing slide-across clutter
-      gsap.set(el, {
-        x: targetX,
-        y: targetY,
-        rotation: targetRotate,
-        scale: targetScale,
-        opacity: 0,
-      });
+    // Entrance animation: use gsap.to with stagger (quickTo not ready yet on first render)
+    if (!hasEntered) {
       gsap.to(el, {
-        opacity: targetOpacity,
-        duration: 0.5,
-        ease: "power2.out",
-        overwrite: "auto",
+        x: targetX, y: targetY, rotation: targetRotate,
+        scale: targetScale, opacity: targetOpacity,
+        duration: 0.8, ease: "power3.out",
+        overwrite: "auto", force3D: true,
+        delay: (2 - abs) * 0.08,
       });
-    } else {
-      // Normal smooth slide and rotation
-      gsap.to(el, {
-        x: targetX,
-        y: targetY,
-        rotation: targetRotate,
-        scale: targetScale,
-        opacity: targetOpacity,
-        duration: 0.8,
-        ease: "power3.out",
-        overwrite: "auto",
-        force3D: true,
-        delay: !hasEntered ? (2 - abs) * 0.08 : 0,
-      });
-    }
-  }, [position, isActive, cardWidth, cardHeight, spacing, yOffset, rotateStep, hasEntered, abs]);
-
-  // Show thumbnail until the active card's video has buffered and settled
-  useEffect(() => {
-    if (!isActive || !isInView) {
-      setVideoFadedIn(false);
-      setIsPaused(false);
       return;
     }
-    const t = setTimeout(() => setVideoFadedIn(true), 450);
-    return () => {
-      clearTimeout(t);
+
+    // Wrap-around jump: snap position then fade in
+    if (Math.abs(prevPos - position) > 2) {
+      gsap.set(el, { x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: 0, force3D: true });
+      opacityTo.current?.(targetOpacity);
+      return;
+    }
+
+    // Normal transition: call pre-compiled animators (no allocation, no jank)
+    xTo.current?.(targetX);
+    yTo.current?.(targetY);
+    rotateTo.current?.(targetRotate);
+    scaleTo.current?.(targetScale);
+    opacityTo.current?.(targetOpacity);
+  }, [position, isActive, spacing, yOffset, rotateStep, hasEntered, abs]);
+
+  // Delay iframe mount by 2 frames so the card slide animation starts in a clean frame
+  useEffect(() => {
+    if (!isActive || !isInView) {
+      setIframeMounted(false);
       setVideoFadedIn(false);
+      return;
+    }
+    let raf1: number, raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setIframeMounted(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
     };
   }, [isActive, isInView]);
 
-  const togglePlayPause = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
-    if (isPaused) {
-      win.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
-    } else {
-      win.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
-    }
-    setIsPaused((p) => !p);
-  };
+  // Fade in video after iframe has had time to buffer
+  useEffect(() => {
+    if (!iframeMounted) { setVideoFadedIn(false); return; }
+    const t = setTimeout(() => setVideoFadedIn(true), 400);
+    return () => clearTimeout(t);
+  }, [iframeMounted]);
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
@@ -140,17 +142,15 @@ export function WorkCard({
         borderRadius: cardWidth > 200 ? 32 : 20,
         overflow: "hidden",
         cursor: position === 0 ? "default" : "pointer",
-        willChange: "transform",
+        willChange: "transform, opacity",
         backfaceVisibility: "hidden",
         WebkitBackfaceVisibility: "hidden",
-        transform: "translateZ(0)",
         backgroundColor: "#000",
         border: "1px solid rgba(255, 255, 255, 0.08)",
-        boxShadow: isActive
-          ? "0 32px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.06)"
-          : "0 12px 32px rgba(0,0,0,0.5)",
+        // Static shadow — no reactive repaint on active change
+        boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         zIndex: zIndexVal,
-        opacity: 0, // initially hidden for entrance transition
+        opacity: 0,
       }}
     >
       {/* ── Thumbnail ── */}
@@ -159,7 +159,7 @@ export function WorkCard({
         style={{
           opacity: videoFadedIn ? 0 : 1,
           pointerEvents: "none",
-          transition: "opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+          transition: "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
         <Image
@@ -170,21 +170,21 @@ export function WorkCard({
           sizes={`${cardWidth}px`}
           priority={abs <= 1}
         />
-        {/* Recessed dark overlay for inactive cards, lighter for active card */}
         <div
-          className="absolute inset-0 transition-colors duration-500"
+          className="absolute inset-0"
           style={{
             backgroundColor: isActive
               ? "transparent"
               : hovered
-              ? "rgba(0, 0, 0, 0.35)"
-              : "rgba(0, 0, 0, 0.45)",
+              ? "rgba(0,0,0,0.35)"
+              : "rgba(0,0,0,0.45)",
+            transition: "background-color 0.4s ease",
           }}
         />
       </div>
 
-      {/* ── YouTube Video Player — only mounted when active AND visible ── */}
-      {isActive && isInView && (
+      {/* ── YouTube iframe — mounted 2 frames after card becomes active ── */}
+      {iframeMounted && (
         <div className="absolute inset-0 z-0 bg-black">
           <iframe
             ref={iframeRef}

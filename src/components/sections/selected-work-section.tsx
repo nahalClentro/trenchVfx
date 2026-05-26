@@ -182,10 +182,10 @@ export function SelectedWorkSection({ id }: Props) {
       >
         <div className="opacity-0">
           <span className="text-gray-500 text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold block mb-3">
-            Our Work
+            Short Form Content
           </span>
           <h2 className="text-5xl md:text-7xl font-sans font-black uppercase tracking-tight leading-[0.9] text-white">
-            Selected<br />Works
+            Selected<br />Shorts
           </h2>
         </div>
         
