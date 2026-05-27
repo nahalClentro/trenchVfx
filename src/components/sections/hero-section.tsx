@@ -49,12 +49,12 @@ export function HeroSection() {
     };
 
     const targetFunc = (isOnScreen && !isMuted) ? "unMute" : "mute";
-    
+
     // Send immediately
     sendCommand(targetFunc);
 
     // Staggered retries to guarantee YouTube Player API receives the command
-    const timeouts = [200, 500, 1000, 2000].map(delay => 
+    const timeouts = [200, 500, 1000, 2000].map(delay =>
       setTimeout(() => sendCommand(targetFunc), delay)
     );
 

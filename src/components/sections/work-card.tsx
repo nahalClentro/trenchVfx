@@ -72,14 +72,22 @@ export function WorkCard({
       win.postMessage(JSON.stringify({ event: "command", func, args: "" }), "*");
     };
 
-    const targetFunc = (isOnScreen && isActive) ? "unMute" : "mute";
+    const playOrMute = () => {
+      if (isOnScreen && isActive) {
+        sendCommand("playVideo");
+        sendCommand("unMute");
+      } else {
+        sendCommand("mute");
+        sendCommand("pauseVideo");
+      }
+    };
 
     // Send immediately
-    sendCommand(targetFunc);
+    playOrMute();
 
-    // Staggered retries to guarantee YouTube Player API receives the command
+    // Staggered retries to guarantee YouTube Player API receives the commands
     const timeouts = [200, 500, 1000, 2000].map(delay => 
-      setTimeout(() => sendCommand(targetFunc), delay)
+      setTimeout(playOrMute, delay)
     );
 
     return () => {
