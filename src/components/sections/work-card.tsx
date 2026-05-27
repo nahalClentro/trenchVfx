@@ -41,12 +41,28 @@ export function WorkCard({
   const [hovered, setHovered] = useState(false);
   const [iframeMounted, setIframeMounted] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [origin, setOrigin] = useState("");
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [isOnScreen, setIsOnScreen] = useState(false);
   const abs = Math.abs(position);
 
   useEffect(() => {
-    if (typeof window !== "undefined") setOrigin(window.location.origin);
+    setMounted(true);
+    
+    // Check if user has already interacted with the document
+    const handleInteraction = () => {
+      setHasInteracted(true);
+    };
+    window.addEventListener("click", handleInteraction, { once: true });
+    window.addEventListener("pointerdown", handleInteraction, { once: true });
+    window.addEventListener("touchstart", handleInteraction, { once: true });
+    window.addEventListener("keydown", handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener("click", handleInteraction);
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("touchstart", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+    };
   }, []);
 
   useEffect(() => {
@@ -73,9 +89,13 @@ export function WorkCard({
     };
 
     const playOrMute = () => {
-      if (isOnScreen && isActive) {
+      if (isActive) {
         sendCommand("playVideo");
-        sendCommand("unMute");
+        if (isOnScreen && hasInteracted) {
+          sendCommand("unMute");
+        } else {
+          sendCommand("mute");
+        }
       } else {
         sendCommand("mute");
         sendCommand("pauseVideo");
@@ -93,7 +113,7 @@ export function WorkCard({
     return () => {
       timeouts.forEach(clearTimeout);
     };
-  }, [isOnScreen, isActive, iframeLoaded]);
+  }, [isOnScreen, isActive, iframeLoaded, hasInteracted]);
 
   const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const yTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
@@ -212,7 +232,9 @@ export function WorkCard({
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
-  const embedSrc = `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ""}`;
+  const embedSrc = mounted
+    ? `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+    : "";
 
   return (
     <div

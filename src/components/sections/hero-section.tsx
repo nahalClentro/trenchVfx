@@ -9,22 +9,27 @@ export function HeroSection() {
   const { scrollY } = useScroll();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isPlayingRef = useRef(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [isOnScreen, setIsOnScreen] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const scale = useTransform(scrollY, [0, 800], [1, 0.94]);
   const opacity = useTransform(scrollY, [0, 600], [1, 0.2]);
   const y = useTransform(scrollY, [0, 800], [0, 100]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Unmute automatically on first user interaction (click, tap, scroll, etc.) to satisfy browser security rules
   useEffect(() => {
     const handleInteraction = () => {
       const win = iframeRef.current?.contentWindow;
       if (!win) return;
-      if (isOnScreen && !isMuted) {
-        win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
-      }
+      win.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
+      win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
+      setIsMuted(false);
     };
     window.addEventListener("click", handleInteraction, { once: true });
     window.addEventListener("pointerdown", handleInteraction, { once: true });
@@ -36,7 +41,7 @@ export function HeroSection() {
       window.removeEventListener("touchstart", handleInteraction);
       window.removeEventListener("keydown", handleInteraction);
     };
-  }, [isOnScreen, isMuted]);
+  }, []);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -74,18 +79,17 @@ export function HeroSection() {
     setIsMuted((m) => !m);
   };
 
-  // Derive on-screen state from the opacity motion value instead of
-  // IntersectionObserver. The hero uses Framer Motion's opacity transform
-  // (1 → 0.2), so the DOM element stays "intersecting" even when nearly
-  // invisible. Using the same 0.5 threshold also controls pause/play.
-  useMotionValueEvent(opacity, "change", (val) => {
-    // Update visibility state for mute/unmute logic
-    setIsOnScreen(val > 0.5);
+  // Derive on-screen state from the scrollY motion value instead of opacity.
+  // Pause the video when the user scrolls past the hero section (> 500px).
+  useMotionValueEvent(scrollY, "change", (latestScrollY) => {
+    if (!mounted) return;
+
+    const shouldPlay = latestScrollY < 500;
+    setIsOnScreen(shouldPlay);
 
     // Pause/resume the video on scroll transitions
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
-    const shouldPlay = val > 0.5;
     if (shouldPlay && !isPlayingRef.current) {
       win.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
       isPlayingRef.current = true;
@@ -177,16 +181,18 @@ export function HeroSection() {
               <div className="absolute inset-0 rounded-[18px] sm:rounded-[26px] -z-10" style={{ boxShadow: "0 8px 80px 10px rgba(255, 214, 0, 0.25)" }} />
 
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                <iframe
-                  ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=0&loop=1&playlist=${featuredVideoId}&controls=0&rel=0&modestbranding=1&enablejsapi=1`}
-                  onLoad={() => setIframeLoaded(true)}
-                  title="TrenchVfx Featured Video"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full border-none pointer-events-none"
-                />
+                {mounted && (
+                  <iframe
+                    ref={iframeRef}
+                    src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${featuredVideoId}&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`}
+                    onLoad={() => setIframeLoaded(true)}
+                    title="TrenchVfx Featured Video"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full border-none pointer-events-none"
+                  />
+                )}
               </div>
 
               {/* Mute / unmute toggle */}
