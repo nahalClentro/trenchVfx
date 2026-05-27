@@ -63,13 +63,28 @@ export function WorkCard({
   }, []);
 
   useEffect(() => {
-    const win = iframeRef.current?.contentWindow;
-    if (!win || !iframeLoaded) return;
-    if (isOnScreen && isActive) {
-      win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
-    } else {
-      win.postMessage('{"event":"command","func":"mute","args":""}', "*");
-    }
+    const iframe = iframeRef.current;
+    if (!iframe || !iframeLoaded) return;
+
+    const sendCommand = (func: string) => {
+      const win = iframe.contentWindow;
+      if (!win) return;
+      win.postMessage(JSON.stringify({ event: "command", func, args: "" }), "*");
+    };
+
+    const targetFunc = (isOnScreen && isActive) ? "unMute" : "mute";
+
+    // Send immediately
+    sendCommand(targetFunc);
+
+    // Staggered retries to guarantee YouTube Player API receives the command
+    const timeouts = [200, 500, 1000, 2000].map(delay => 
+      setTimeout(() => sendCommand(targetFunc), delay)
+    );
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
   }, [isOnScreen, isActive, iframeLoaded]);
 
   const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);

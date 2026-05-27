@@ -11,29 +11,57 @@ export function HeroSection() {
   const isPlayingRef = useRef(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isOnScreen, setIsOnScreen] = useState(true);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  useEffect(() => {
-    const el = document.getElementById("hero");
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsOnScreen(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const scale = useTransform(scrollY, [0, 800], [1, 0.94]);
+  const opacity = useTransform(scrollY, [0, 600], [1, 0.2]);
+  const y = useTransform(scrollY, [0, 800], [0, 100]);
 
+  // Unmute automatically on first user interaction (click, tap, scroll, etc.) to satisfy browser security rules
   useEffect(() => {
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
-    if (isOnScreen && !isMuted) {
-      win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
-    } else {
-      win.postMessage('{"event":"command","func":"mute","args":""}', "*");
-    }
+    const handleInteraction = () => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      if (isOnScreen && !isMuted) {
+        win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
+      }
+    };
+    window.addEventListener("click", handleInteraction, { once: true });
+    window.addEventListener("pointerdown", handleInteraction, { once: true });
+    window.addEventListener("touchstart", handleInteraction, { once: true });
+    window.addEventListener("keydown", handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener("click", handleInteraction);
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("touchstart", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+    };
   }, [isOnScreen, isMuted]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframeLoaded) return;
+
+    const sendCommand = (func: string) => {
+      const win = iframe.contentWindow;
+      if (!win) return;
+      win.postMessage(JSON.stringify({ event: "command", func, args: "" }), "*");
+    };
+
+    const targetFunc = (isOnScreen && !isMuted) ? "unMute" : "mute";
+    
+    // Send immediately
+    sendCommand(targetFunc);
+
+    // Staggered retries to guarantee YouTube Player API receives the command
+    const timeouts = [200, 500, 1000, 2000].map(delay => 
+      setTimeout(() => sendCommand(targetFunc), delay)
+    );
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [isOnScreen, isMuted, iframeLoaded]);
 
   const toggleMute = () => {
     const win = iframeRef.current?.contentWindow;
@@ -46,14 +74,15 @@ export function HeroSection() {
     setIsMuted((m) => !m);
   };
 
-  const scale = useTransform(scrollY, [0, 800], [1, 0.94]);
-  const opacity = useTransform(scrollY, [0, 600], [1, 0.2]);
-  const y = useTransform(scrollY, [0, 800], [0, 100]);
-
-  // Pause the hero video once the page has scrolled far enough that it's no longer
-  // the primary view (opacity < 0.5 = scrolled ~300 px, work section is overlapping).
-  // Resume if the user scrolls back up. postMessage is only sent on state transitions.
+  // Derive on-screen state from the opacity motion value instead of
+  // IntersectionObserver. The hero uses Framer Motion's opacity transform
+  // (1 → 0.2), so the DOM element stays "intersecting" even when nearly
+  // invisible. Using the same 0.5 threshold also controls pause/play.
   useMotionValueEvent(opacity, "change", (val) => {
+    // Update visibility state for mute/unmute logic
+    setIsOnScreen(val > 0.5);
+
+    // Pause/resume the video on scroll transitions
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
     const shouldPlay = val > 0.5;
@@ -150,7 +179,8 @@ export function HeroSection() {
               <div className="w-full h-full rounded-[12px] sm:rounded-[20px] overflow-hidden bg-card border border-white/5 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=1&loop=1&playlist=${featuredVideoId}&controls=0&rel=0&modestbranding=1&enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${featuredVideoId}?autoplay=1&mute=0&loop=1&playlist=${featuredVideoId}&controls=0&rel=0&modestbranding=1&enablejsapi=1`}
+                  onLoad={() => setIframeLoaded(true)}
                   title="TrenchVfx Featured Video"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
