@@ -42,11 +42,35 @@ export function WorkCard({
   const [iframeMounted, setIframeMounted] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [isOnScreen, setIsOnScreen] = useState(false);
   const abs = Math.abs(position);
 
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin);
   }, []);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsOnScreen(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !iframeLoaded) return;
+    if (isOnScreen && isActive) {
+      win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
+    } else {
+      win.postMessage('{"event":"command","func":"mute","args":""}', "*");
+    }
+  }, [isOnScreen, isActive, iframeLoaded]);
 
   const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const yTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
@@ -165,7 +189,7 @@ export function WorkCard({
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
-  const embedSrc = `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3${origin ? `&origin=${encodeURIComponent(origin)}` : ""}`;
+  const embedSrc = `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ""}`;
 
   return (
     <div

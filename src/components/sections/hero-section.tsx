@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import { siteConfig } from "@/lib/constants";
 
@@ -9,7 +9,31 @@ export function HeroSection() {
   const { scrollY } = useScroll();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isPlayingRef = useRef(true);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isOnScreen, setIsOnScreen] = useState(true);
+
+  useEffect(() => {
+    const el = document.getElementById("hero");
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsOnScreen(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    if (isOnScreen && !isMuted) {
+      win.postMessage('{"event":"command","func":"unMute","args":""}', "*");
+    } else {
+      win.postMessage('{"event":"command","func":"mute","args":""}', "*");
+    }
+  }, [isOnScreen, isMuted]);
 
   const toggleMute = () => {
     const win = iframeRef.current?.contentWindow;

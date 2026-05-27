@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Tyson from "../../../public/images/tyson.jpeg"
+import Image from "next/image";
 
 const testimonial = {
   logoText: "tyson ridenour",
   logoIcon: "T",
-  quote: "Working with TrenchVfx was a game-changer for my channel — the edits hit different and the pacing keeps viewers locked in from start to finish.",
+  quote: "Trench has a creative foundation that can't be taught",
   name: "Tyson Ridenour",
   role: "142K Subscribers",
-  avatar: "https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg",
+  avatar: Tyson,
 };
 
 const WAVEFORM_BARS = [4,7,5,9,6,11,8,14,10,7,13,9,6,12,8,15,11,7,9,13,6,10,8,12,5,9,7,11,6,8,10,7,9,5,12,8,6,10,7,9];
@@ -185,14 +187,7 @@ export function TestimonialsSection() {
             className="relative rounded-2xl p-8 md:p-10 flex flex-col justify-between"
             style={{ background: "#181a17" }}
           >
-            <div className="flex items-center gap-2 mb-8">
-              <div className="w-8 h-8 rounded bg-white flex items-center justify-center text-black font-black text-sm tracking-tighter">
-                {testimonial.logoIcon.toLowerCase()}
-              </div>
-              <span className="text-white font-bold text-base tracking-normal lowercase">
-                {testimonial.logoText}
-              </span>
-            </div>
+        
 
             {testimonial.quote && (
               <div className="mb-10">
@@ -205,7 +200,7 @@ export function TestimonialsSection() {
 
             <div className="flex items-center gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={testimonial.avatar}
                 alt={testimonial.name}
                 width={52}
