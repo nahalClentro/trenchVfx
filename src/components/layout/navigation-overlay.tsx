@@ -5,11 +5,12 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import Link from "next/link";
 import { siteConfig } from "@/lib/constants";
 import { X } from "lucide-react";
+import { lenisScrollTo } from "@/lib/lenis-scroll";
 
 const navItems = [
-  { label: "Work", href: "#work" },
-  { label: "Testimonials", href: "#testimonials" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Home", target: "hero" },
+  { label: "Work", target: "work" },
+  { label: "Testimonials", target: "testimonials" },
 ] as const;
 
 const socialLinks = [
@@ -107,17 +108,21 @@ export function NavigationOverlay({ isOpen, onClose }: Props) {
               exit="exit"
               aria-label="Overlay navigation"
             >
-              {navItems.map(({ label, href }) => (
-                <motion.div key={href} variants={slideUp} className="overflow-hidden">
-                  <Link
-                    href={href}
-                    onClick={onClose}
-                    className="group block py-3 sm:py-4"
+              {navItems.map(({ label, target }) => (
+                <motion.div key={target} variants={slideUp} className="overflow-hidden">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => {
+                        lenisScrollTo(target === "hero" ? 0 : `#${target}`);
+                      }, 50);
+                    }}
+                    className="group block py-3 sm:py-4 text-left w-full"
                   >
                     <span className="block text-[3.2rem] font-light leading-none tracking-tight text-foreground/25 transition-colors duration-300 group-hover:text-foreground sm:text-[4.5rem] lg:text-[5.5rem] xl:text-[6.5rem]">
                       {label}
                     </span>
-                  </Link>
+                  </button>
                 </motion.div>
               ))}
             </motion.nav>

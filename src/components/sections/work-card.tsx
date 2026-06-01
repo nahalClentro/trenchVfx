@@ -5,7 +5,6 @@ import Image from "next/image";
 import { gsap } from "gsap";
 import type { WorkItem } from "@/data/works";
 
-// Avoid useLayoutEffect SSR warning while still running synchronously on the client
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface Props {
@@ -19,6 +18,7 @@ interface Props {
   yOffset: number;
   rotateStep: number;
   hasEntered: boolean;
+  sectionInView: boolean;
 }
 
 export function WorkCard({
@@ -32,6 +32,7 @@ export function WorkCard({
   yOffset,
   rotateStep,
   hasEntered,
+  sectionInView,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -41,60 +42,37 @@ export function WorkCard({
   const [hovered, setHovered] = useState(false);
   const [iframeMounted, setIframeMounted] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isOnScreen, setIsOnScreen] = useState(false);
+  // Per-card audio preference. Starts unmuted so the video attempts to play
+  // with audio from the first frame — the browser will allow it when
+  // allow="autoplay" is set on the iframe and mute=0 is in the URL.
+  const [cardMuted, setCardMuted] = useState(false);
   const abs = Math.abs(position);
 
   useEffect(() => {
     setMounted(true);
-    
-    // Check if user has already interacted with the document
-    const handleInteraction = () => {
-      setHasInteracted(true);
-    };
-    window.addEventListener("click", handleInteraction, { once: true });
-    window.addEventListener("pointerdown", handleInteraction, { once: true });
-    window.addEventListener("touchstart", handleInteraction, { once: true });
-    window.addEventListener("keydown", handleInteraction, { once: true });
-    return () => {
-      window.removeEventListener("click", handleInteraction);
-      window.removeEventListener("pointerdown", handleInteraction);
-      window.removeEventListener("touchstart", handleInteraction);
-      window.removeEventListener("keydown", handleInteraction);
-    };
   }, []);
 
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsOnScreen(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
+  const sendCommand = (func: string) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args: "" }),
+      "*"
     );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  };
 
+
+  // Play / mute / unmute based on active state, section visibility, and the
+  // user's explicit audio preference for this card.
   useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframeLoaded) return;
+    if (!iframeLoaded) return;
 
-    const sendCommand = (func: string) => {
-      const win = iframe.contentWindow;
-      if (!win) return;
-      win.postMessage(JSON.stringify({ event: "command", func, args: "" }), "*");
-    };
-
-    const playOrMute = () => {
-      if (isActive) {
+    const run = () => {
+      if (isActive && sectionInView) {
         sendCommand("playVideo");
-        if (isOnScreen && hasInteracted) {
-          sendCommand("unMute");
-        } else {
+        if (cardMuted) {
           sendCommand("mute");
+        } else {
+          sendCommand("unMute");
         }
       } else {
         sendCommand("mute");
@@ -102,19 +80,19 @@ export function WorkCard({
       }
     };
 
-    // Send immediately
-    playOrMute();
+    run();
+    const ts = [150, 400, 900, 2000].map((d) => setTimeout(run, d));
+    return () => ts.forEach(clearTimeout);
+  }, [isActive, iframeLoaded, sectionInView, cardMuted]);
 
-    // Staggered retries to guarantee YouTube Player API receives the commands
-    const timeouts = [200, 500, 1000, 2000].map(delay => 
-      setTimeout(playOrMute, delay)
-    );
+  // Notify the hero to stop as soon as the carousel's active video is live
+  // and the section is actually in view (not just loaded in the background).
+  useEffect(() => {
+    if (!isActive || !iframeLoaded || !sectionInView) return;
+    window.dispatchEvent(new CustomEvent("carouselVideoPlaying"));
+  }, [isActive, iframeLoaded, sectionInView]);
 
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, [isOnScreen, isActive, iframeLoaded, hasInteracted]);
-
+  // ─── GSAP quickTo targets ────────────────────────────────────────────────
   const xTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const yTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const rotateTo = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
@@ -131,17 +109,6 @@ export function WorkCard({
     opacityTo.current = gsap.quickTo(el, "opacity", { duration: 0.3, ease: "power2.out" });
   }, []);
 
-  // Position / animation driver.
-  //
-  // We use useLayoutEffect so the very first paint already has the card at
-  // its final transform — without this, the card briefly paints at gsap's
-  // default scale (1) before snapping to its real target, which combined with
-  // refresh-while-on-section produced the "video appears smaller / disappears"
-  // bug. Four cases:
-  //   1. First run, section NOT yet in view  → snap to hidden state.
-  //   2. First run, section ALREADY in view  → snap to final state (no entrance anim).
-  //   3. hasEntered transitions false → true → play entrance animation.
-  //   4. Position change (carousel switch)   → quickTo to new target.
   useIsoLayoutEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -157,46 +124,30 @@ export function WorkCard({
     const targetY = hasEntered ? (isActive ? -yOffset * 2.3 : abs === 1 ? -yOffset : 0) : 220;
     const targetRotate = hasEntered ? position * rotateStep : 0;
     const targetScale = hasEntered ? (isActive ? 1.08 : 1 - abs * 0.1) : 0.7;
-    const targetOpacity = hasEntered ? 1 : 0;
+    // Cards at abs≥2 are off-screen buffer slots — keep invisible so they
+    // don't bleed into view on smaller screens.
+    const targetOpacity = hasEntered ? (abs >= 2 ? 0 : 1) : 0;
 
-    // Case 1 & 2: first effect run — always snap, never animate
     if (isFirstRun) {
-      gsap.set(el, {
-        x: targetX,
-        y: targetY,
-        rotation: targetRotate,
-        scale: targetScale,
-        opacity: targetOpacity,
-        force3D: true,
-      });
+      gsap.set(el, { x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: targetOpacity, force3D: true });
       return;
     }
 
-    // Case 3: entrance animation (hasEntered just flipped true)
     if (!prevHasEntered && hasEntered) {
       gsap.to(el, {
-        x: targetX,
-        y: targetY,
-        rotation: targetRotate,
-        scale: targetScale,
-        opacity: targetOpacity,
-        duration: 0.8,
-        ease: "power3.out",
-        overwrite: "auto",
-        force3D: true,
+        x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: targetOpacity,
+        duration: 0.8, ease: "power3.out", overwrite: true, force3D: true,
         delay: (2 - abs) * 0.08,
       });
       return;
     }
 
-    // Wrap-around jump (carousel index crossed the end)
     if (Math.abs(prevPos - position) > 2) {
       gsap.set(el, { x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: 0, force3D: true });
       opacityTo.current?.(targetOpacity);
       return;
     }
 
-    // Case 4: normal carousel transition
     xTo.current?.(targetX);
     yTo.current?.(targetY);
     rotateTo.current?.(targetRotate);
@@ -204,36 +155,43 @@ export function WorkCard({
     opacityTo.current?.(targetOpacity);
   }, [position, isActive, spacing, yOffset, rotateStep, hasEntered, abs]);
 
-  // Mount iframe only when card is active. Once mounted, KEEP it mounted as long
-  // as the card stays active — never tie this to scroll/viewport state.
+  // Mount the iframe only when the card is active AND the section has entered
+  // view — avoids loading YouTube in the background before the user reaches
+  // this section. On mobile, delay slightly so the GSAP animation finishes
+  // before the heavy iframe loads.
   useEffect(() => {
-    if (!isActive) {
-      setIframeMounted(false);
-      setIframeLoaded(false);
+    if (!isActive || !hasEntered) {
+      if (!isActive) {
+        // Delay unmount so quick back-navigation keeps the iframe alive
+        const t = setTimeout(() => {
+          setIframeMounted(false);
+          setIframeLoaded(false);
+        }, 400);
+        return () => clearTimeout(t);
+      }
       return;
     }
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setIframeMounted(true));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, [isActive]);
+    const isMobile = window.innerWidth < 640;
+    const delay = isMobile ? 600 : 80;
+    const t = setTimeout(() => setIframeMounted(true), delay);
+    return () => clearTimeout(t);
+  }, [isActive, hasEntered]);
 
-  // Safety net: if YouTube never fires onLoad (CSP, network blip, blocked
-  // by extension), reveal the iframe after 6s anyway.
+  // Safety net: if YouTube never fires onLoad (CSP, network blip, extension)
+  // reveal the iframe after 6 s anyway so the user isn't stuck on a blank card.
   useEffect(() => {
     if (!iframeMounted || iframeLoaded) return;
-    const t = window.setTimeout(() => setIframeLoaded(true), 6000);
-    return () => window.clearTimeout(t);
+    const t = setTimeout(() => setIframeLoaded(true), 6000);
+    return () => clearTimeout(t);
   }, [iframeMounted, iframeLoaded]);
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
+  // mute=0 so YouTube starts with audio when allow="autoplay" grants permission.
+  // The playOrMute effect mutes it programmatically if sectionInView is false or
+  // the user has toggled mute on this card.
   const embedSrc = mounted
-    ? `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+    ? `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=0&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
     : "";
 
   return (
@@ -260,12 +218,10 @@ export function WorkCard({
         border: "1px solid rgba(255, 255, 255, 0.08)",
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         zIndex: zIndexVal,
-        // initial opacity 0 so the card is invisible until the first useLayoutEffect
-        // runs and applies the correct gsap state (prevents a flash at gsap defaults)
         opacity: 0,
       }}
     >
-      {/* Thumbnail — permanent fallback layer (z-0). */}
+      {/* Thumbnail fallback shown while the iframe loads */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Image
           src={`https://img.youtube.com/vi/${item.youtubeId}/maxresdefault.jpg`}
@@ -295,7 +251,7 @@ export function WorkCard({
         />
       </div>
 
-      {/* YouTube iframe layered ON TOP of the thumbnail. */}
+      {/* YouTube iframe — fades in over thumbnail once loaded */}
       {iframeMounted && (
         <div
           className="absolute inset-0 z-10 bg-transparent"
@@ -308,7 +264,7 @@ export function WorkCard({
           <iframe
             ref={iframeRef}
             src={embedSrc}
-            allow="autoplay; encrypted-media; picture-in-picture"
+            allow="autoplay; encrypted-media; picture-in-picture; web-share"
             title={item.title}
             tabIndex={-1}
             loading="eager"
@@ -318,6 +274,33 @@ export function WorkCard({
             style={{ pointerEvents: "none" }}
           />
         </div>
+      )}
+
+      {/* Audio toggle — shown only on the active card so the user always has
+          a reliable way to control sound regardless of browser autoplay policy */}
+      {isActive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setCardMuted((m) => !m);
+          }}
+          aria-label={cardMuted ? "Unmute video" : "Mute video"}
+          className="absolute bottom-3 right-3 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-black/80 hover:text-white"
+        >
+          {cardMuted ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          )}
+        </button>
       )}
     </div>
   );

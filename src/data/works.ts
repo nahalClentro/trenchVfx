@@ -28,18 +28,18 @@ export const works: WorkItem[] = [
     youtubeId: "5iwy5v6FCas",
     description: "Typography animation and kinetic motion design",
   },
-  {
-    id: "4",
-    title: "PODCAST EDIT",
-    category: "Long Form",
-    youtubeId: "UYQ8iB6mnkE",
-    description: "Long-form podcast edit with dynamic pacing and sound design",
-  },
-  {
-    id: "5",
-    title: "CINEMATIC REEL",
-    category: "Cinematic",
-    youtubeId: "hB_ODiIlLIc",
-    description: "Cinematic storytelling with color grade and motion design",
-  },
+  // {
+  //   id: "4",
+  //   title: "PODCAST EDIT",
+  //   category: "Long Form",
+  //   youtubeId: "UYQ8iB6mnkE",
+  //   description: "Long-form podcast edit with dynamic pacing and sound design",
+  // },
+  // {
+  //   id: "5",
+  //   title: "CINEMATIC REEL",
+  //   category: "Cinematic",
+  //   youtubeId: "hB_ODiIlLIc",
+  //   description: "Cinematic storytelling with color grade and motion design",
+  // },
 ];
