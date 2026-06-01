@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Lenis from "lenis";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { registerLenis } from "@/lib/lenis-scroll";
 
 export function SmoothScroll() {
   useEffect(() => {
@@ -19,6 +20,7 @@ export function SmoothScroll() {
       touchMultiplier: 1.5,
     });
 
+    registerLenis(lenis);
     lenis.on("scroll", ScrollTrigger.update);
 
     const onTick = (time: number) => lenis.raf(time * 1000);

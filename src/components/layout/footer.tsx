@@ -1,6 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { siteConfig } from "@/lib/constants";
 import { Sparkle, ArrowUpRight } from "lucide-react";
+import { lenisScrollTo } from "@/lib/lenis-scroll";
+
+function scrollTo(id: string) {
+  if (id === "hero") {
+    lenisScrollTo(0);
+  } else {
+    lenisScrollTo(`#${id}`);
+  }
+}
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -54,9 +65,8 @@ export function Footer() {
 
           {/* Links */}
           <div className="flex flex-wrap items-center gap-6 md:gap-10 text-base md:text-lg lg:text-xl text-white font-medium">
-            <Link href="/" className="hover:text-accent transition-colors">Home</Link>
-            <Link href="#work" className="hover:text-accent transition-colors">Work</Link>
-            <Link href="#faq" className="hover:text-accent transition-colors">FAQ</Link>
+            <button onClick={() => scrollTo("hero")} className="hover:text-accent transition-colors">Home</button>
+            <button onClick={() => scrollTo("work")} className="hover:text-accent transition-colors">Work</button>
           </div>
         </div>
 
@@ -64,7 +74,7 @@ export function Footer() {
         <div className="w-full flex justify-center mt-auto mb-6">
           <h1 
             className="font-display tracking-tight select-none leading-none pt-4"
-            style={{ fontSize: "clamp(4rem, 14vw, 15rem)" }}
+            style={{ fontSize: "clamp(1rem, 14vw, 15rem)" }}
           >
             <span className="text-white">Trench</span><span className="text-accent">Vfx</span>
           </h1>

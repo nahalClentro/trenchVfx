@@ -7,12 +7,9 @@ import { works } from "@/data/works";
 import { WorkCard } from "./work-card";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const VISIBLE = 1;
-
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-function getInitialScreenType(): "mobile" | "tablet" | "desktop" {
-  if (typeof window === "undefined") return "desktop";
+function getScreenType(): "mobile" | "tablet" | "desktop" {
   if (window.innerWidth < 640) return "mobile";
   if (window.innerWidth < 1024) return "tablet";
   return "desktop";
@@ -29,16 +26,14 @@ export function SelectedWorkSection({ id }: Props) {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
-  // Lazy init so cards render at the correct breakpoint on first paint
-  // (eliminates the "starts at desktop size then resizes" flicker)
-  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">(getInitialScreenType);
+  const [sectionInView, setSectionInView] = useState(false);
+  // Must start as "desktop" (matches SSR) — real value applied in the layout
+  // effect below before first paint, so there is no visible flash.
+  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) setScreenType("mobile");
-      else if (window.innerWidth < 1024) setScreenType("tablet");
-      else setScreenType("desktop");
-    };
+  useIsoLayoutEffect(() => {
+    const handleResize = () => setScreenType(getScreenType());
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -73,6 +68,20 @@ export function SelectedWorkSection({ id }: Props) {
     observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, [hasEntered]);
+
+  // Track whether the section is currently in the viewport so WorkCard knows
+  // when to unmute — more reliable than observing individual cards whose
+  // layout rects are shifted by GSAP transforms.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setSectionInView(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Heading + nav scroll reveals
   useEffect(() => {
@@ -162,8 +171,12 @@ export function SelectedWorkSection({ id }: Props) {
     setActiveIndex((i) => (i + pos + works.length) % works.length);
   }, []);
 
-  const cards = Array.from({ length: VISIBLE * 2 + 1 }, (_, i) => {
-    const pos = i - VISIBLE;
+  // Render all items so no card ever mounts/unmounts during navigation.
+  // Each item keeps its component instance; only the `position` prop changes,
+  // which triggers the GSAP quickTo animations for a smooth slide.
+  const half = Math.floor(works.length / 2);
+  const cards = Array.from({ length: works.length }, (_, i) => {
+    const pos = i - half;
     const idx = (activeIndex + pos + works.length) % works.length;
     return { pos, item: works[idx] };
   });
@@ -175,7 +188,7 @@ export function SelectedWorkSection({ id }: Props) {
       className="relative z-10 w-full overflow-hidden bg-background text-foreground"
       style={{
         minHeight: "100dvh",
-        borderRadius: "40px 40px 0 0",
+        borderRadius: "0 0 0 0",
         boxShadow: "0 -24px 48px rgba(0, 0, 0, 0.7)",
       }}
     >
@@ -202,7 +215,7 @@ export function SelectedWorkSection({ id }: Props) {
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
-            key={pos}
+            key={item.youtubeId}
             item={item}
             isActive={pos === 0}
             position={pos}
@@ -213,6 +226,7 @@ export function SelectedWorkSection({ id }: Props) {
             yOffset={config.yOffset}
             rotateStep={config.rotateStep}
             hasEntered={hasEntered}
+            sectionInView={sectionInView}
           />
         ))}
       </div>

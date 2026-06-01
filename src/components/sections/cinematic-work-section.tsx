@@ -7,11 +7,9 @@ import { cinematicWorks } from "@/data/cinematic-works";
 import { WorkCard } from "./work-card";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const VISIBLE = 1;
-
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-function getInitialScreenType(): "mobile" | "tablet" | "desktop" {
+function getScreenType(): "mobile" | "tablet" | "desktop" {
   if (typeof window === "undefined") return "desktop";
   if (window.innerWidth < 640) return "mobile";
   if (window.innerWidth < 1024) return "tablet";
@@ -25,14 +23,16 @@ export function CinematicWorkSection() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
-  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">(getInitialScreenType);
+  const [sectionInView, setSectionInView] = useState(false);
+  // Must initialise deterministically (NOT from window) so the server-rendered
+  // HTML and the first client render agree — otherwise React throws a hydration
+  // mismatch. The real screen type is applied in the layout effect below, which
+  // runs before the browser paints, so there is no visible desktop→mobile flash.
+  const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) setScreenType("mobile");
-      else if (window.innerWidth < 1024) setScreenType("tablet");
-      else setScreenType("desktop");
-    };
+  useIsoLayoutEffect(() => {
+    const handleResize = () => setScreenType(getScreenType());
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -64,6 +64,17 @@ export function CinematicWorkSection() {
     observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, [hasEntered]);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setSectionInView(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -117,7 +128,8 @@ export function CinematicWorkSection() {
       spacing: 160,
       yOffset: 25,
       rotateStep: 5,
-      carouselHeight: 300,
+      carouselHeight: 230,
+      marginTop: "1rem",
     },
     tablet: {
       cardWidth: 448,
@@ -126,6 +138,7 @@ export function CinematicWorkSection() {
       yOffset: 40,
       rotateStep: 6,
       carouselHeight: 450,
+      marginTop: "2rem",
     },
     desktop: {
       cardWidth: 640,
@@ -134,6 +147,7 @@ export function CinematicWorkSection() {
       yOffset: 65,
       rotateStep: 7,
       carouselHeight: 550,
+      marginTop: "3rem",
     },
   }[screenType];
 
@@ -152,8 +166,9 @@ export function CinematicWorkSection() {
     setActiveIndex((i) => (i + pos + cinematicWorks.length) % cinematicWorks.length);
   }, []);
 
-  const cards = Array.from({ length: VISIBLE * 2 + 1 }, (_, i) => {
-    const pos = i - VISIBLE;
+  const half = Math.floor(cinematicWorks.length / 2);
+  const cards = Array.from({ length: cinematicWorks.length }, (_, i) => {
+    const pos = i - half;
     const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
     return { pos, item: cinematicWorks[idx] };
   });
@@ -186,11 +201,11 @@ export function CinematicWorkSection() {
 
       <div
         className="relative w-full overflow-visible flex items-end justify-center"
-        style={{ height: config.carouselHeight, marginTop: "3rem" }}
+        style={{ height: config.carouselHeight, marginTop: config.marginTop }}
       >
         {cards.map(({ pos, item }) => (
           <WorkCard
-            key={pos}
+            key={item.youtubeId}
             item={item as any}
             isActive={pos === 0}
             position={pos}
@@ -201,6 +216,7 @@ export function CinematicWorkSection() {
             yOffset={config.yOffset}
             rotateStep={config.rotateStep}
             hasEntered={hasEntered}
+            sectionInView={sectionInView}
           />
         ))}
       </div>

@@ -11,7 +11,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-8 py-5 sm:px-14">
+      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-8 py-5 sm:px-14 bg-black/40 backdrop-blur-2xl border-b border-white/[0.06]">
 
         {/* Logo — left */}
         <Link href="/" className="font-display text-xl tracking-wide">
