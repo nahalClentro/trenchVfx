@@ -43,9 +43,6 @@ export function WorkCard({
   const [iframeMounted, setIframeMounted] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
-  // Per-card audio preference. Starts unmuted so the video attempts to play
-  // with audio from the first frame — the browser will allow it when
-  // allow="autoplay" is set on the iframe and mute=0 is in the URL.
   const [cardMuted, setCardMuted] = useState(false);
   const abs = Math.abs(position);
 
@@ -121,9 +118,9 @@ export function WorkCard({
     isFirstRunRef.current = false;
 
     const targetX = hasEntered ? position * spacing : 0;
-    const targetY = hasEntered ? (isActive ? -yOffset * 2.3 : abs === 1 ? -yOffset : 0) : 220;
+    const targetY = hasEntered ? (abs >= 2 ? 0 : -yOffset) : 220;
     const targetRotate = hasEntered ? position * rotateStep : 0;
-    const targetScale = hasEntered ? (isActive ? 1.08 : 1 - abs * 0.1) : 0.7;
+    const targetScale = hasEntered ? (abs >= 2 ? 0.7 : 1) : 0.7;
     // Cards at abs≥2 are off-screen buffer slots — keep invisible so they
     // don't bleed into view on smaller screens.
     const targetOpacity = hasEntered ? (abs >= 2 ? 0 : 1) : 0;
@@ -187,11 +184,10 @@ export function WorkCard({
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
-  // mute=0 so YouTube starts with audio when allow="autoplay" grants permission.
-  // The playOrMute effect mutes it programmatically if sectionInView is false or
-  // the user has toggled mute on this card.
+  // mute=1 is required for autoplay to work on iOS Safari and all mobile browsers.
+  // The playOrMute effect sends an unMute postMessage once the user has interacted.
   const embedSrc = mounted
-    ? `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=0&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+    ? `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&fs=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
     : "";
 
   return (
