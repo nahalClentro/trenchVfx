@@ -70,7 +70,7 @@ export function CinematicWorkSection() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setSectionInView(entry.isIntersecting),
-      { threshold: 0 }
+      { threshold: 0.15 }
     );
     observer.observe(el);
     return () => observer.disconnect();
