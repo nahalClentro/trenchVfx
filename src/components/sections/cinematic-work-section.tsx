@@ -24,12 +24,10 @@ export function CinematicWorkSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
   const [sectionInView, setSectionInView] = useState(false);
-  // Must initialise deterministically (NOT from window) so the server-rendered
-  // HTML and the first client render agree — otherwise React throws a hydration
-  // mismatch. The real screen type is applied in the layout effect below, which
-  // runs before the browser paints, so there is no visible desktop→mobile flash.
+ 
   const [screenType, setScreenType] = useState<"mobile" | "tablet" | "desktop">("desktop");
 
+  
   useIsoLayoutEffect(() => {
     const handleResize = () => setScreenType(getScreenType());
     handleResize();
@@ -37,9 +35,6 @@ export function CinematicWorkSection() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // See selected-work-section.tsx for why this synchronous on-mount check
-  // matters — fixes "videos disappear on refresh" and "cards stay at the
-  // pre-entrance size until you navigate."
   useIsoLayoutEffect(() => {
     if (!sectionRef.current) return;
     const rect = sectionRef.current.getBoundingClientRect();
@@ -70,11 +65,12 @@ export function CinematicWorkSection() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setSectionInView(entry.isIntersecting),
-      { threshold: 0.15 }
+      { threshold: 0.05 }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -111,6 +107,7 @@ export function CinematicWorkSection() {
         }
       );
     }
+    
 
     return () => {
       if (headingAnim?.scrollTrigger) headingAnim.scrollTrigger.kill();
@@ -166,12 +163,19 @@ export function CinematicWorkSection() {
     setActiveIndex((i) => (i + pos + cinematicWorks.length) % cinematicWorks.length);
   }, []);
 
+  // const half = Math.floor(cinematicWorks.length / 2);
+  // const cards = Array.from({ length: cinematicWorks.length }, (_, i) => {
+  //   const pos = i - half;
+  //   const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
+  //   return { pos, item: cinematicWorks[idx] };
+  // });
+
   const half = Math.floor(cinematicWorks.length / 2);
-  const cards = Array.from({ length: cinematicWorks.length }, (_, i) => {
-    const pos = i - half;
-    const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
-    return { pos, item: cinematicWorks[idx] };
-  });
+const cards = Array.from({ length: cinematicWorks.length }, (_, i) => {
+  const pos = i - half;
+  const idx = (activeIndex + pos + cinematicWorks.length) % cinematicWorks.length;
+  return { pos, item: cinematicWorks[idx] };
+});
 
   return (
     <section

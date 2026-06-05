@@ -40,19 +40,52 @@ export function WorkCard({
   const prevHasEnteredRef = useRef(false);
   const isFirstRunRef = useRef(true);
   const [hovered, setHovered] = useState(false);
-  const [iframeMounted, setIframeMounted] = useState(false);
+  const [ready, setReady] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [cardMuted, setCardMuted] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  // Track whether this card has ever been the active card while its section
+  // was in view. Once true, we keep the iframe mounted even when the card
+  // slides away so there's no reload flicker when the user navigates back.
+  const [hasBeenActive, setHasBeenActive] = useState(false);
   const abs = Math.abs(position);
 
-  useEffect(() => {
-    setMounted(true);
-    setIsMobile("ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth < 1024);
+  // Load the YouTube iframe immediately on mount for the active card (or any
+  // card that was previously active). This is critical because iOS Safari only
+  // allows autoplay=1 on iframes that are part of the initial page load —
+  // dynamically-inserted iframes (e.g. when sectionInView becomes true) get
+  // their autoplay silently blocked and show the red YouTube play button.
+  //
+  // hasBeenActive keeps the iframe mounted after the card slides away so
+  // there's no reload flicker when the user navigates back.
+  const shouldLoadIframe = ready && (isActive || hasBeenActive);
 
-    // Set up global interaction listener to unlock audio/autoplay restrictions on mobile
+  // Compute embedSrc once on the client — stored in a ref so it never
+  // triggers a re-render and the iframe src never mutates after mount.
+  const embedSrc = useRef("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    embedSrc.current = [
+      `https://www.youtube.com/embed/${item.youtubeId}`,
+      `?autoplay=1`,
+      `&mute=1`,
+      `&playsinline=1`,
+      `&loop=1`,
+      `&playlist=${item.youtubeId}`,
+      `&controls=0`,
+      `&rel=0`,
+      `&modestbranding=1`,
+      `&enablejsapi=1`,
+      `&origin=${encodeURIComponent(window.location.origin)}`,
+    ].join("");
+    setReady(true);
+
+    // Mark this card as "has been active" if it starts as the active card
+    // (i.e. position 0 on initial mount)
+    // Note: sectionInView may not be true yet, so we handle that in a
+    // separate effect below.
+
     const handleInteraction = () => {
       setHasInteracted(true);
       window.removeEventListener("click", handleInteraction);
@@ -65,7 +98,8 @@ export function WorkCard({
       window.removeEventListener("click", handleInteraction);
       window.removeEventListener("touchstart", handleInteraction);
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally run once — youtubeId is stable per card instance
 
   const sendCommand = (func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -74,25 +108,61 @@ export function WorkCard({
     );
   };
 
+  // When this card becomes active while its section is in view, mark it so
+  // the iframe stays mounted even after it slides away.
+  useEffect(() => {
+    if (isActive && sectionInView) {
+      setHasBeenActive(true);
+    }
+  }, [isActive, sectionInView]);
 
-  // Synchronize play/pause and mute/unmute states with the YouTube Player API.
-  // We play the video and manage audio only when active and the section is in view.
+  // Listen for YouTube's postMessage events (onReady / onStateChange).
+  // On iOS, the autoplay=1 URL param may succeed on initial load (since the
+  // iframe is part of the page render), but the player might pause itself
+  // because it's off-screen. When the section scrolls into view, we need to
+  // send playVideo at the exact moment the player is ready.
+  useEffect(() => {
+    if (!shouldLoadIframe || !isActive) return;
+
+    const handleMessage = (e: MessageEvent) => {
+      if (typeof e.data !== "string") return;
+      try {
+        const data = JSON.parse(e.data);
+        // YouTube sends {"event":"onReady"} when the player API is ready
+        // and {"event":"onStateChange","info":-1} when unstarted
+        if (
+          data.event === "onReady" ||
+          (data.event === "onStateChange" && data.info === -1)
+        ) {
+          if (sectionInView) {
+            sendCommand("playVideo");
+            sendCommand("mute");
+          }
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [shouldLoadIframe, isActive, sectionInView]);
+
+  // Sync play/pause/mute with the YouTube Player API.
+  // Since only the active card has an iframe loaded, we can safely always
+  // send playVideo — there's no autoplay budget conflict.
   useEffect(() => {
     if (!iframeLoaded) return;
 
-    const syncPlayer = () => {
+    const sync = () => {
       if (isActive && sectionInView) {
         sendCommand("playVideo");
         if (cardMuted) {
           sendCommand("mute");
+        } else if (hasInteracted) {
+          sendCommand("unMute");
         } else {
-          // On mobile, keep it muted until the user has interacted with the document
-          const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-          if (isMobile && !hasInteracted) {
-            sendCommand("mute");
-          } else {
-            sendCommand("unMute");
-          }
+          sendCommand("mute");
         }
       } else {
         sendCommand("mute");
@@ -100,13 +170,23 @@ export function WorkCard({
       }
     };
 
-    syncPlayer();
-    const ts = [150, 500, 1000].map((d) => setTimeout(syncPlayer, d));
-    return () => ts.forEach(clearTimeout);
+    sync();
+    const t1 = setTimeout(sync, 300);
+    const t2 = setTimeout(sync, 800);
+    const t3 = setTimeout(sync, 1500);
+    const t4 = setTimeout(sync, 3000);
+    const t5 = setTimeout(sync, 5000);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+    };
   }, [iframeLoaded, cardMuted, hasInteracted, isActive, sectionInView]);
 
-  // Notify the hero to stop as soon as the carousel's active video is live
-  // and the section is actually in view (not just loaded in the background).
+  // Notify hero to pause once the active carousel video is live and visible
   useEffect(() => {
     if (!isActive || !iframeLoaded || !sectionInView) return;
     window.dispatchEvent(new CustomEvent("carouselVideoPlaying"));
@@ -144,9 +224,7 @@ export function WorkCard({
     const targetY = hasEntered ? (abs >= 2 ? 0 : -yOffset) : 220;
     const targetRotate = hasEntered ? position * rotateStep : 0;
     const targetScale = hasEntered ? (abs >= 2 ? 0.7 : 1) : 0.7;
-    // Cards at abs≥2 are off-screen buffer slots — keep invisible so they
-    // don't bleed into view on smaller screens.
-    const targetOpacity = hasEntered ? (abs >= 2 ? 0 : 1) : 0;
+    const targetOpacity = hasEntered ? (abs >= 2 ? 0 : 1) : (isActive ? 1 : 0);
 
     if (isFirstRun) {
       gsap.set(el, { x: targetX, y: targetY, rotation: targetRotate, scale: targetScale, opacity: targetOpacity, force3D: true });
@@ -175,58 +253,13 @@ export function WorkCard({
     opacityTo.current?.(targetOpacity);
   }, [position, isActive, spacing, yOffset, rotateStep, hasEntered, abs]);
 
-  // Mount the iframe when the card is active.
-  // Keeping the active card's iframe mounted (similar to the hero section) prevents
-  // it from reloading when scrolling in/out of view, which bypasses mobile autoplay blocks.
+  // Safety net: if YouTube never fires onLoad (iOS WebKit, CSP, network blip)
+  // mark as loaded after 3 s so the user isn't stuck on a blank card.
   useEffect(() => {
-    if (isActive) {
-      setIframeMounted(true);
-    } else {
-      // Delay unmount of inactive card so quick back-navigation keeps the iframe alive
-      const t = setTimeout(() => {
-        setIframeMounted(false);
-        setIframeLoaded(false);
-      }, 400);
-      return () => clearTimeout(t);
-    }
-  }, [isActive]);
-
-  // Pre-build the exact YouTube embed URL matching the working hero section parameters.
-  const youtubeUrl = `https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${item.youtubeId}&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`;
-
-  // On touch/mobile devices, we start with an empty src to prevent the browser from blocking autoplay off-screen.
-  // On desktop, we load it immediately on mount.
-  const embedSrc = (mounted && !isMobile) ? youtubeUrl : "";
-
-  // On mobile/touch devices, we listen to the very first user interaction (touchstart or click)
-  // and synchronously set the iframe's src directly on the DOM element. This preserves the user gesture
-  // context so iOS Safari and Android Chrome allow the media to load and autoplay.
-  useEffect(() => {
-    if (!iframeMounted || !isMobile) return;
-
-    const loadIframe = () => {
-      const iframe = iframeRef.current;
-      if (iframe && !iframe.src) {
-        iframe.src = youtubeUrl;
-      }
-    };
-
-    window.addEventListener("touchstart", loadIframe, { passive: true });
-    window.addEventListener("click", loadIframe, { passive: true });
-
-    return () => {
-      window.removeEventListener("touchstart", loadIframe);
-      window.removeEventListener("click", loadIframe);
-    };
-  }, [iframeMounted, isMobile, youtubeUrl]);
-
-  // Safety net: if YouTube never fires onLoad (CSP, network blip, extension)
-  // reveal the iframe after 6 s anyway so the user isn't stuck on a blank card.
-  useEffect(() => {
-    if (!iframeMounted || iframeLoaded) return;
-    const t = setTimeout(() => setIframeLoaded(true), 6000);
+    if (!ready || iframeLoaded) return;
+    const t = setTimeout(() => setIframeLoaded(true), 3000);
     return () => clearTimeout(t);
-  }, [iframeMounted, iframeLoaded]);
+  }, [ready, iframeLoaded]);
 
   const zIndexVal = isActive ? 20 : 10 - abs;
 
@@ -254,10 +287,10 @@ export function WorkCard({
         border: "1px solid rgba(255, 255, 255, 0.08)",
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         zIndex: zIndexVal,
-        opacity: 0,
+        opacity: isActive ? 1 : 0,
       }}
     >
-      {/* Thumbnail fallback shown while the iframe loads */}
+      {/* Thumbnail shown while iframe loads */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Image
           src={`https://img.youtube.com/vi/${item.youtubeId}/maxresdefault.jpg`}
@@ -287,30 +320,29 @@ export function WorkCard({
         />
       </div>
 
-      {/* YouTube iframe — fades in over thumbnail once loaded */}
-      {iframeMounted && (
+      {shouldLoadIframe && (
         <div
           className="absolute inset-0 z-10 bg-transparent"
           style={{
-            opacity: iframeLoaded ? 1 : 0,
+            opacity: isActive && iframeLoaded ? 1 : 0,
             transition: "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
             pointerEvents: "none",
           }}
         >
           <iframe
             ref={iframeRef}
-            src={embedSrc}
+            src={embedSrc.current}
             onLoad={() => setIframeLoaded(true)}
             title={item.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            // "autoplay" must appear first — some WebKit versions gate on order
+            allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            {...{ "playsinline": "" }}
             className="w-full h-full border-none pointer-events-none"
           />
         </div>
       )}
 
-      {/* Audio toggle — shown only on the active card so the user always has
-          a reliable way to control sound regardless of browser autoplay policy */}
       {isActive && (
         <button
           onClick={(e) => {

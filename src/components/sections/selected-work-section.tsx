@@ -77,11 +77,13 @@ export function SelectedWorkSection({ id }: Props) {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setSectionInView(entry.isIntersecting),
-      { threshold: 0.15 }
+      { threshold: 0.05 }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Add this alongside the existing hasEntered layout effect in both section files
 
   // Heading + nav scroll reveals
   useEffect(() => {
@@ -104,6 +106,7 @@ export function SelectedWorkSection({ id }: Props) {
       );
     }
 
+    
     const nav = navRef.current;
     let navAnim: gsap.core.Tween | undefined;
     if (nav) {
@@ -174,12 +177,19 @@ export function SelectedWorkSection({ id }: Props) {
   // Render all items so no card ever mounts/unmounts during navigation.
   // Each item keeps its component instance; only the `position` prop changes,
   // which triggers the GSAP quickTo animations for a smooth slide.
+  // const half = Math.floor(works.length / 2);
+  // const cards = Array.from({ length: works.length }, (_, i) => {
+  //   const pos = i - half;
+  //   const idx = (activeIndex + pos + works.length) % works.length;
+  //   return { pos, item: works[idx] };
+  // });
+
   const half = Math.floor(works.length / 2);
-  const cards = Array.from({ length: works.length }, (_, i) => {
-    const pos = i - half;
-    const idx = (activeIndex + pos + works.length) % works.length;
-    return { pos, item: works[idx] };
-  });
+const cards = Array.from({ length: works.length }, (_, i) => {
+  const pos = i - half;
+  const idx = (activeIndex + pos + works.length) % works.length;
+  return { pos, item: works[idx] };
+});
 
   return (
     <section
