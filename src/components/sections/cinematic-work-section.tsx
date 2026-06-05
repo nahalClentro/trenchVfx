@@ -5,6 +5,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cinematicWorks } from "@/data/cinematic-works";
 import { WorkCard } from "./work-card";
+import type { WorkItem } from "@/data/works";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -210,7 +211,7 @@ const cards = Array.from({ length: cinematicWorks.length }, (_, i) => {
         {cards.map(({ pos, item }) => (
           <WorkCard
             key={item.youtubeId}
-            item={item as any}
+            item={item as WorkItem}
             isActive={pos === 0}
             position={pos}
             onClick={() => handleCardClick(pos)}

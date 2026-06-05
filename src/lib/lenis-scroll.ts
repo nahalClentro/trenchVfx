@@ -8,7 +8,7 @@ export function registerLenis(l: Lenis) {
 
 export function lenisScrollTo(target: string | number | HTMLElement) {
   if (instance) {
-    instance.scrollTo(target as any, { duration: 2 });
+    instance.scrollTo(target as string | number | HTMLElement, { duration: 2 });
   } else {
     // Fallback if Lenis hasn't initialised yet
     if (typeof target === "number") {

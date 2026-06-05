@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { siteConfig } from "@/lib/constants";
 import { Sparkle, ArrowUpRight } from "lucide-react";
 import { lenisScrollTo } from "@/lib/lenis-scroll";

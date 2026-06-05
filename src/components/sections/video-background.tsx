@@ -8,11 +8,10 @@ export function VideoBackground() {
   const { featuredVideoId } = siteConfig.portfolio;
   const [muted, setMuted] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") setOrigin(window.location.origin);
-  }, []);
+  const [origin] = useState(() => {
+    if (typeof window !== "undefined") return window.location.origin;
+    return "";
+  });
 
   // Safety net for the hero: if onLoad never fires, reveal anyway after 6s
   useEffect(() => {

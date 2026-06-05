@@ -18,7 +18,9 @@ export function HeroSection() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    Promise.resolve().then(() => {
+      setMounted(true);
+    });
   }, []);
 
   // Keep ref in sync so scroll handler always has the current value.

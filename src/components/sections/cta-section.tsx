@@ -31,7 +31,7 @@ export function CtaSection() {
       <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center flex flex-col items-center gap-8">
         {/* Eyebrow */}
         <span className="text-white/40 text-xs sm:text-sm uppercase tracking-[0.3em] font-semibold">
-          Let's work together
+          Let&apos;s work together
         </span>
 
         {/* Heading */}
@@ -41,7 +41,7 @@ export function CtaSection() {
 
         {/* Sub-line */}
         <p className="text-white/50 text-base sm:text-lg font-light max-w-md leading-relaxed">
-          Shoot me a message and let's make something your audience won't forget.
+          Shoot me a message and let&apos;s make something your audience won&apos;t forget.
         </p>
 
         {/* CTA button */}

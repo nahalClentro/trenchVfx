@@ -192,14 +192,13 @@ export function TestimonialsSection() {
             {testimonial.quote && (
               <div className="mb-10">
                 <p className="text-lg md:text-xl font-medium leading-relaxed text-white/90">
-                  <span className="text-accent text-3xl font-serif leading-none align-top mr-1.5 select-none">"</span>
+                  <span className="text-accent text-3xl font-serif leading-none align-top mr-1.5 select-none">&quot;</span>
                   {testimonial.quote}
                 </p>
               </div>
             )}
 
             <div className="flex items-center gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <Image
                 src={testimonial.avatar}
                 alt={testimonial.name}
